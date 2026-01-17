@@ -1,4 +1,1 @@
-requests
-beautifulsoup4
-gspread
-google-auth
+playwright==1.42.0
