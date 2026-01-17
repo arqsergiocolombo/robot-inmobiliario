@@ -3,22 +3,26 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_all():
-    # URL de búsqueda (Versión simplificada para evitar sospechas)
+    # URL de búsqueda base
     target_url = "https://inmuebles.mercadolibre.com.ar/departamentos/venta/capital-federal/"
     
-    # Tu API Key (de la imagen f398a6)
+    # Tu API Key de la imagen f398a6
     api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
     
-    # --- MODO NAVEGADOR REAL (Anti-Bloqueo) ---
-    # render=true: Abre un Chrome real para cargar todo el contenido
-    # country_code=ar: Nos posiciona en Argentina para no despertar sospechas
+    # --- MODO HUMANO (Anti-Bloqueo Total) ---
+    # render=true: Abre un Chrome real para cargar todo el contenido (JS)
+    # country_code=ar: Nos posiciona en Argentina para evitar sospechas
     proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
 
     try:
-        print(f"🚀 Iniciando MODO NAVEGADOR REAL via ScraperAPI...")
+        print(f"🚀 Iniciando MODO HUMANO via ScraperAPI (esto puede tardar)...")
         # El renderizado tarda más, subimos el tiempo de espera a 90 segundos
-        res = requests.get(proxy_url, timeout=90)
+        res = requests.get(proxy_url, timeout=120)
         
+        if res.status_code != 200:
+            print(f"❌ Error de ScraperAPI: {res.status_code}")
+            return []
+
         soup = BeautifulSoup(res.text, 'html.parser')
         
         # Buscamos cualquier enlace que lleve a una propiedad (identificados por MLA-)
@@ -32,7 +36,7 @@ def scrape_all():
             if link in links_vistos: continue
             links_vistos.add(link)
 
-            # Buscamos el precio que está "cerca" del enlace
+            # Buscamos el precio en el texto que rodea al enlace
             contenedor = a.find_parent(['div', 'li', 'section'])
             texto = contenedor.get_text(separator=' ') if contenedor else a.get_text()
             
@@ -54,7 +58,7 @@ def scrape_all():
         # Eliminamos duplicados finales
         final_list = list({v['link']: v for v in results}.values())
         
-        print(f"✅ ¡POR FIN! Enlaces encontrados: {len(links_vistos)}")
+        print(f"✅ ¡ÉXITO! Enlaces únicos detectados: {len(links_vistos)}")
         print(f"✅ Propiedades reales capturadas: {len(final_list)}")
         
         return final_list
