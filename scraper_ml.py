@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_all():
-    # Tu URL específica
+    # Tu URL específica de departamentos
     url = "https://inmuebles.mercadolibre.com.ar/departamentos/venta/mas-de-2-dormitorios/capital-federal/departamento_NoIndex_True"
     
     headers = {
@@ -20,37 +20,36 @@ def scrape_all():
         
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # --- CAMBIO CLAVE AQUÍ ---
-        # Buscamos la clase 'ui-search-result__content-wrapper' que es el estándar actual de Inmuebles
+        # --- SELECTORES REFORZADOS PARA INMUEBLES ---
+        # Buscamos las "tarjetas" de las propiedades
         items = soup.find_all('div', class_='ui-search-result__content-wrapper')
-        
         if not items:
-            # Plan B: buscar por el contenedor principal de la tarjeta
             items = soup.find_all('div', class_='ui-search-result__wrapper')
-
+        
         print(f"🔎 Analizando {len(items)} propiedades encontradas...")
 
         results = []
         for item in items:
             try:
-                # 1. Precio (ahora buscamos dentro de la clase de dinero)
+                # 1. PRECIO
                 price_elem = item.find('span', class_='andes-money-amount__fraction')
                 precio = int(price_elem.text.replace('.', '')) if price_elem else 0
                 
-                # 2. Link (buscamos el anchor que envuelve el título)
-                # Subimos un nivel para encontrar el link si no está en el content-wrapper
-                parent = item.parent
-                link_tag = parent.find('a', class_='ui-search-link') if parent else None
+                # 2. LINK (Buscamos el enlace que envuelve el título o la imagen)
+                # En inmuebles, el link suele estar un nivel arriba o en la clase ui-search-link
+                link_tag = item.find('a', class_='ui-search-link')
                 if not link_tag:
-                    link_tag = item.find_all_previous('a', class_='ui-search-link', limit=1)[0]
+                    # Buscamos en los contenedores padres si no está adentro
+                    link_tag = item.find_parent('div', class_='ui-search-result__wrapper').find('a') if item.find_parent('div', class_='ui-search-result__wrapper') else None
                 
                 link = link_tag['href'] if link_tag else ""
                 
-                # 3. Zona / Título
+                # 3. TÍTULO / ZONA
                 zona_tag = item.find('h2', class_='ui-search-item__title')
                 zona = zona_tag.text if zona_tag else "CABA"
 
-                # 4. Metros y Ambientes
+                # 4. ATRIBUTOS (Metros y Ambientes)
+                # En inmuebles suelen estar en una lista con esta clase
                 attrs = item.find_all('li', class_='ui-search-card-attributes__attribute')
                 m2, amb = 0, ""
                 for a in attrs:
@@ -61,7 +60,8 @@ def scrape_all():
                     elif "ambiente" in txt:
                         amb = a.text
 
-                if precio > 0:
+                # Si tenemos link y precio, es una propiedad válida
+                if link and precio > 0:
                     results.append({
                         "precio_usd": precio,
                         "link": link,
@@ -75,5 +75,5 @@ def scrape_all():
         return results
 
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Error crítico: {e}")
         return []
