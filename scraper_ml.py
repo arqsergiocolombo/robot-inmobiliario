@@ -3,13 +3,14 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_all():
-    # Tu URL específica de departamentos
+    # URL de búsqueda
     url = "https://inmuebles.mercadolibre.com.ar/departamentos/venta/mas-de-2-dormitorios/capital-federal/departamento_NoIndex_True"
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept-Language": "es-AR,es;q=0.9",
-        "referer": "https://www.google.com/"
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Referer": "https://www.google.com/"
     }
 
     try:
@@ -20,48 +21,51 @@ def scrape_all():
         
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # --- SELECTORES REFORZADOS PARA INMUEBLES ---
-        # Buscamos las "tarjetas" de las propiedades
-        items = soup.find_all('div', class_='ui-search-result__content-wrapper')
-        if not items:
-            items = soup.find_all('div', class_='ui-search-result__wrapper')
+        # BUSQUEDA UNIVERSAL: Buscamos todos los links que parecen ser de una propiedad
+        # Generalmente contienen '/MLA-' o son links de inmuebles
+        all_links = soup.find_all('a', href=re.compile(r'articulo.mercadolibre.com.ar/MLA-|/inmuebles/'))
         
-        print(f"🔎 Analizando {len(items)} propiedades encontradas...")
-
+        # Filtramos links duplicados y nos quedamos con los contenedores que tienen precio
         results = []
-        for item in items:
-            try:
-                # 1. PRECIO
-                price_elem = item.find('span', class_='andes-money-amount__fraction')
-                precio = int(price_elem.text.replace('.', '')) if price_elem else 0
-                
-                # 2. LINK (Buscamos el enlace que envuelve el título o la imagen)
-                # En inmuebles, el link suele estar un nivel arriba o en la clase ui-search-link
-                link_tag = item.find('a', class_='ui-search-link')
-                if not link_tag:
-                    # Buscamos en los contenedores padres si no está adentro
-                    link_tag = item.find_parent('div', class_='ui-search-result__wrapper').find('a') if item.find_parent('div', class_='ui-search-result__wrapper') else None
-                
-                link = link_tag['href'] if link_tag else ""
-                
-                # 3. TÍTULO / ZONA
-                zona_tag = item.find('h2', class_='ui-search-item__title')
-                zona = zona_tag.text if zona_tag else "CABA"
+        processed_links = set()
 
-                # 4. ATRIBUTOS (Metros y Ambientes)
-                # En inmuebles suelen estar en una lista con esta clase
-                attrs = item.find_all('li', class_='ui-search-card-attributes__attribute')
+        print(f"🔎 Analizando {len(all_links)} enlaces encontrados...")
+
+        for link_tag in all_links:
+            link = link_tag.get('href', '')
+            if link in processed_links or 'click1' in link:
+                continue
+            
+            # Buscamos el bloque de información más cercano al link
+            # ML suele envolver el precio y el titulo en un contenedor padre
+            container = link_tag.find_parent('div', class_=re.compile(r'result|content|wrapper'))
+            if not container:
+                container = link_tag # Si no hay padre claro, usamos el tag mismo
+
+            try:
+                # 1. Precio (Buscamos cualquier número grande con formato de moneda)
+                price_text = container.find('span', class_=re.compile(r'price|fraction'))
+                if not price_text: continue
+                
+                precio = int(re.sub(r'\D', '', price_text.text))
+                
+                # 2. Título / Zona
+                title_elem = container.find(['h2', 'h3', 'span'], class_=re.compile(r'title'))
+                zona = title_elem.text.strip() if title_elem else "CABA"
+
+                # 3. Atributos (Metros/Ambientes)
+                # Buscamos elementos que contengan "m²" o "amb"
                 m2, amb = 0, ""
-                for a in attrs:
-                    txt = a.text.lower()
+                attr_elements = container.find_all(['li', 'span'], text=re.compile(r'm²|amb|dorm', re.IGNORECASE))
+                for attr in attr_elements:
+                    txt = attr.text.lower()
                     if "m²" in txt:
                         m_match = re.search(r'\d+', txt.replace('.',''))
                         if m_match: m2 = int(m_match.group())
-                    elif "ambiente" in txt:
-                        amb = a.text
+                    elif "amb" in txt:
+                        amb = txt.strip()
 
-                # Si tenemos link y precio, es una propiedad válida
-                if link and precio > 0:
+                if precio > 5000: # Filtro para evitar avisos basura
                     results.append({
                         "precio_usd": precio,
                         "link": link,
@@ -69,7 +73,8 @@ def scrape_all():
                         "metros": m2,
                         "ambientes": amb
                     })
-            except Exception:
+                    processed_links.add(link)
+            except:
                 continue
         
         return results
