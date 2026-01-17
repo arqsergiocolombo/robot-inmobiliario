@@ -4,45 +4,45 @@ import json
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 SPREADSHEET_NAME = "Oportunidades inmobiliarias"
-WORKSHEET_NAME = "Sheet1"
 
 def append_rows(rows):
-    raw = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
+    try:
+        # 1. Leer credenciales desde la variable de entorno de Railway
+        google_json_str = os.getenv("GOOGLE_JSON")
+        if not google_json_str:
+            print("❌ Error: Falta la variable GOOGLE_JSON en Railway")
+            return
 
-    # Normaliza saltos de línea del private_key
-    raw = raw.replace("\\n", "\n")
+        creds_dict = json.loads(google_json_str, strict=False)
+        creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+        client = gspread.authorize(creds)
+        
+        # 2. Abrir la hoja
+        sh = client.open(SPREADSHEET_NAME)
+        ws = sh.get_worksheet(0) # Abre la primera pestaña
 
-    service_account_info = json.loads(raw)
+        # 3. Formatear datos para las columnas
+        values = []
+        for r in rows:
+            precio = r.get("precio_usd")
+            metros = r.get("metros")
+            m2 = (precio / metros) if (precio and metros and metros > 0) else 0
 
-    creds = Credentials.from_service_account_info(
-        service_account_info,
-        scopes=SCOPES
-    )
+            values.append([
+                datetime.now().strftime("%d/%m/%Y %H:%M"),
+                r.get("zona"),
+                precio,
+                metros,
+                round(m2, 2),
+                r.get("ambientes"),
+                r.get("link")
+            ])
 
-    client = gspread.authorize(creds)
-    sh = client.open(SPREADSHEET_NAME)
-    ws = sh.worksheet(WORKSHEET_NAME)
+        if values:
+            ws.append_rows(values, value_input_option="USER_ENTERED")
+            print(f"✅ {len(values)} filas enviadas a Google Sheets.")
 
-    values = []
-    for r in rows:
-        precio = r.get("precio_usd")
-        metros = r.get("metros")
-        precio_m2 = (precio / metros) if precio and metros else None
-
-        values.append([
-            datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-            r.get("fuente"),
-            r.get("zona"),
-            precio,
-            metros,
-            precio_m2,
-            r.get("ambientes"),
-            r.get("link"),
-            None,
-            None
-        ])
-
-    if values:
-        ws.append_rows(values, value_input_option="RAW")
+    except Exception as e:
+        print(f"❌ Error en sheets.py: {e}")
