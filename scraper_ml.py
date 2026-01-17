@@ -67,3 +67,5 @@ def scrape_all():
     except Exception as e:
         print(f"❌ Error: {e}")
         return []
+print(f"DEBUG - Status Code: {res.status_code}")
+print(f"DEBUG - Primeros 200 caracteres: {res.text[:200]}")
