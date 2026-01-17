@@ -7,9 +7,15 @@ print("Robot inmobiliario iniciado")
 while True:
     try:
         rows = scrape_all()
-        append_rows(rows)
-        print(f"Subidas {len(rows)} filas a Sheets")
-        time.sleep(300)
+
+        if not rows:
+            print("⚠️ No hay datos nuevos para subir.")
+        else:
+            append_rows(rows)
+            print(f"Subidas {len(rows)} filas a Sheets")
+
+        time.sleep(300)  # 5 minutos
+
     except Exception as e:
         print("Error:", e)
         time.sleep(60)
