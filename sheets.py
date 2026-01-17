@@ -10,7 +10,7 @@ def export_to_sheets(data):
 
     # ID de tu planilla (sacalo de la URL de tu Google Sheet)
     # Ejemplo: https://docs.google.com/spreadsheets/d/TU_ID_ACA/edit
-    SPREADSHEET_ID = 'TU_ID_DE_GOOGLE_SHEETS_AQUÍ' 
+    SPREADSHEET_ID = 'https://docs.google.com/spreadsheets/d/1fCjrsBqdjDvkwi7ROKiKcKdAFfDvmetyrP-xsqcFjRg/edit?gid=0#gid=0' 
     RANGE_NAME = 'Sheet1!A2'
 
     try:
