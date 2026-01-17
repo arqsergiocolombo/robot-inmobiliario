@@ -7,7 +7,7 @@ while True:
     try:
         ejecutar_analisis()
         print("⏳ Esperando próximo ciclo...")
-        time.sleep(300)  # cada 5 minutos
+        time.sleep(300)  # 5 minutos
     except Exception as e:
         print("❌ Error:", e)
         time.sleep(60)
