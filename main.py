@@ -1,20 +1,21 @@
-from scraper_ml import scrape_all
-from sheets import append_rows
-import sys
+from playwright.sync_api import sync_playwright
+import time
 
-def main():
-    print("--- 🤖 Iniciando Robot Inmobiliario ---")
-    
-    propiedades = scrape_all()
-    
-    if propiedades and len(propiedades) > 0:
-        print(f"✅ Éxito: Se encontraron {len(propiedades)} propiedades.")
-        append_rows(propiedades)
-    else:
-        print("❌ El scraper no encontró nada. ML bloqueó la petición o la URL cambió.")
-        # Opcional: imprimir el HTML para debug (solo si estás probando)
-    
-    print("--- 🏁 Fin del proceso ---")
+URL_ARGENPROP = "https://www.argenprop.com/departamentos-venta-palermo"
 
-if __name__ == "__main__":
-    main()
+def buscar_argenprop():
+    print("🏠 Iniciando búsqueda en Argenprop...")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True,
+            args=["--disable-blink-features=AutomationControlled"]
+        )
+
+        context = browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            viewport={"width": 1280, "height": 800
