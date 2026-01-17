@@ -1,11 +1,18 @@
 # Robot Inmobiliario
 
-Robot automático para detectar oportunidades inmobiliarias y cargarlas en Google Sheets.
+Automatización y sistema de detección de oportunidades inmobiliarias.
 
-## Funciona así
-- Scrapea MercadoLibre
+## Qué hace
+- Scrapea publicaciones de MercadoLibre
 - Normaliza datos
 - Guarda resultados en Google Sheets
-- Corre en loop cada 5 minutos (Railway)
+- Corre automáticamente cada 5 minutos
 
-Credenciales de Google vía variable de entorno.
+## Infraestructura
+- Python 3.13
+- Railway
+- Google Sheets API
+- Variables de entorno (NO archivos secretos)
+
+## Variables necesarias
+- GOOGLE_SERVICE_ACCOUNT_JSON
