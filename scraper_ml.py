@@ -12,27 +12,35 @@ def scrape_all():
         res = requests.get(proxy_url, timeout=60)
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # Estas son las tarjetas que ya detectamos (las 48)
+        # Estas son las 48 tarjetas que ya vimos que detecta
         items = soup.select('div.ui-search-result__wrapper') or soup.select('li.ui-search-layout__item')
-        print(f"🔎 Propiedades reales detectadas: {len(items)}")
-
+        
         results = []
         for item in items:
             try:
-                # 1. Extraer Precio (buscamos cualquier número con la clase fraction)
-                p_elem = item.find('span', class_=re.compile(r'price-tag-fraction|fraction'))
-                if not p_elem: continue
-                precio = int(p_elem.text.replace('.', '').strip())
+                # 1. PRECIO: Buscamos cualquier número que tenga puntos (ej: 120.000)
+                # ML suele poner el precio en spans con clases que cambian, así que buscamos el texto
+                texto_item = item.get_text()
+                precios_encontrados = re.findall(r'\d+\.\d+', texto_item)
                 
-                # 2. Extraer Link
-                link_tag = item.find('a', class_=re.compile(r'ui-search-link|ui-search-result__content'))
-                link = link_tag['href'] if link_tag else ""
-                
-                # 3. Extraer Zona/Título
-                title_tag = item.find(['h2', 'h3'])
-                zona = title_tag.text.strip() if title_tag else "CABA"
+                if precios_encontrados:
+                    # Tomamos el primero que suele ser el precio principal y le quitamos el punto
+                    precio = int(precios_encontrados[0].replace('.', ''))
+                else:
+                    # Plan B para el precio
+                    p_tag = item.find('span', class_=re.compile(r'fraction|price'))
+                    if not p_tag: continue
+                    precio = int(p_tag.text.replace('.', ''))
 
-                if link and precio > 0:
+                # 2. LINK: Buscamos el enlace al artículo
+                link_tag = item.find('a', href=re.compile(r'articulo.mercadolibre.com.ar/MLA'))
+                link = link_tag['href'].split('#')[0] if link_tag else ""
+                
+                # 3. ZONA
+                zona_tag = item.find(['h2', 'h3'])
+                zona = zona_tag.text.strip() if zona_tag else "CABA"
+
+                if link and precio > 5000: # Filtro para evitar captar expensas o basura
                     results.append({
                         "precio_usd": precio,
                         "link": link,
@@ -43,10 +51,7 @@ def scrape_all():
             except:
                 continue
         
-        # IMPORTANTE: Si llegamos acá y hay resultados, el mensaje de error de abajo no debe salir
-        if len(results) > 0:
-            print(f"✅ Se procesaron {len(results)} propiedades correctamente.")
-        
+        print(f"✅ ¡ÉXITO! Se procesaron {len(results)} propiedades para el Excel.")
         return results
 
     except Exception as e:
