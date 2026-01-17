@@ -1,21 +1,16 @@
-import time
 from scraper_ml import scrape_all
 from sheets import append_rows
 
-print("Robot inmobiliario iniciado")
+def main():
+    print("--- Iniciando búsqueda ---")
+    propiedades = scrape_all()
+    
+    if propiedades:
+        print(f"Se encontraron {len(propiedades)} propiedades.")
+        append_rows(propiedades)
+    else:
+        print("No se encontraron datos nuevos.")
+    print("--- Fin del proceso ---")
 
-while True:
-    try:
-        rows = scrape_all()
-
-        if not rows:
-            print("⚠️ No hay datos nuevos para subir.")
-        else:
-            append_rows(rows)
-            print(f"Subidas {len(rows)} filas a Sheets")
-
-        time.sleep(300)  # 5 minutos
-
-    except Exception as e:
-        print("Error:", e)
-        time.sleep(60)
+if __name__ == "__main__":
+    main()
