@@ -9,7 +9,7 @@ while True:
         rows = scrape_all()
         append_rows(rows)
         print(f"Subidas {len(rows)} filas a Sheets")
-        time.sleep(300)  # 5 minutos
+        time.sleep(300)
     except Exception as e:
         print("Error:", e)
         time.sleep(60)
