@@ -3,48 +3,51 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_all():
-    # URL de búsqueda base
+    # URL de búsqueda (Versión simplificada)
     target_url = "https://inmuebles.mercadolibre.com.ar/departamentos/venta/capital-federal/"
-    
-    # Tu API Key de la imagen f398a6
     api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
     
-    # --- MODO HUMANO (Anti-Bloqueo Total) ---
-    # render=true: Abre un Chrome real para cargar todo el contenido (JS)
-    # country_code=ar: Nos posiciona en Argentina para evitar sospechas
-    proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
+    # Cambiamos la estrategia: Sin renderizado (para que no se apague) 
+    # pero con IP Argentina y Ultra-disfraz
+    proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&country_code=ar&device_type=mobile"
 
     try:
-        print(f"🚀 Iniciando MODO HUMANO via ScraperAPI (esto puede tardar)...")
-        # El renderizado tarda más, subimos el tiempo de espera a 90 segundos
-        res = requests.get(proxy_url, timeout=120)
+        print(f"🚀 Iniciando búsqueda ultra-liviana...")
+        res = requests.get(proxy_url, timeout=30)
         
+        # Si ScraperAPI nos da un error, lo vemos acá
         if res.status_code != 200:
-            print(f"❌ Error de ScraperAPI: {res.status_code}")
+            print(f"❌ Error de conexión: {res.status_code}")
             return []
 
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # Buscamos cualquier enlace que lleve a una propiedad (identificados por MLA-)
-        anuncios = soup.find_all('a', href=re.compile(r'articulo.mercadolibre.com.ar/MLA-'))
+        # Buscamos enlaces de publicaciones (MLA)
+        # En la versión móvil, los links son la clave
+        links = []
+        for a in soup.find_all('a', href=True):
+            if 'articulo.mercadolibre.com.ar/MLA-' in a['href']:
+                links.append(a['href'].split('#')[0])
         
+        # Eliminamos duplicados
+        links = list(set(links))
+        print(f"🔎 Enlaces crudos encontrados: {len(links)}")
+
         results = []
-        links_vistos = set()
-
-        for a in anuncios:
-            link = a['href'].split('#')[0]
-            if link in links_vistos: continue
-            links_vistos.add(link)
-
-            # Buscamos el precio en el texto que rodea al enlace
-            contenedor = a.find_parent(['div', 'li', 'section'])
-            texto = contenedor.get_text(separator=' ') if contenedor else a.get_text()
+        for link in links:
+            # Para cada link, buscamos un precio en el texto de la página
+            # Buscamos el bloque que contiene este link
+            elemento = soup.find('a', href=re.compile(re.escape(link)))
+            if not elemento: continue
             
-            # Buscamos números con puntos (ej: 120.000)
+            # Buscamos el texto alrededor del link (donde suele estar el precio)
+            contenedor = elemento.find_parent(['div', 'li'])
+            texto = contenedor.get_text() if contenedor else ""
+            
+            # Buscamos números con punto (ej: 115.000)
             precios = re.findall(r'\d+(?:\.\d+)+', texto)
             
             if precios:
-                # El primer número grande suele ser el precio en USD
                 valor = int(precios[0].replace('.', ''))
                 if valor > 10000:
                     results.append({
@@ -52,17 +55,12 @@ def scrape_all():
                         "link": link,
                         "zona": "CABA",
                         "metros": 0,
-                        "ambientes": "Detectado"
+                        "ambientes": "3+"
                     })
 
-        # Eliminamos duplicados finales
-        final_list = list({v['link']: v for v in results}.values())
-        
-        print(f"✅ ¡ÉXITO! Enlaces únicos detectados: {len(links_vistos)}")
-        print(f"✅ Propiedades reales capturadas: {len(final_list)}")
-        
-        return final_list
+        print(f"✅ Proceso terminado. Propiedades listas: {len(results)}")
+        return results
 
     except Exception as e:
-        print(f"❌ Error crítico: {e}")
+        print(f"❌ Error: {e}")
         return []
