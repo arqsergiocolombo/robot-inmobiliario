@@ -9,9 +9,12 @@ SPREADSHEET_NAME = "Oportunidades inmobiliarias"
 WORKSHEET_NAME = "Sheet1"
 
 def append_rows(rows):
-    service_account_info = json.loads(
-        os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
-    )
+  raw = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
+
+# normaliza saltos de línea del private_key
+raw = raw.replace('\\n', '\n')
+
+service_account_info = json.loads(raw)
 
     creds = Credentials.from_service_account_info(
         service_account_info,
