@@ -3,26 +3,25 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_all():
-    # URL de búsqueda (CABA - Venta)
+    # URL de búsqueda (Versión simplificada para evitar sospechas)
     target_url = "https://inmuebles.mercadolibre.com.ar/departamentos/venta/capital-federal/"
     
-    # Tu API Key de la imagen f398a6
+    # Tu API Key (de la imagen f398a6)
     api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
     
-    # --- CONFIGURACIÓN PREMIUN ---
-    # render=true: Abre un navegador real para que ML no sospeche
-    # premium=true: Usa IPs residenciales (más difíciles de bloquear)
-    # country_code=ar: Nos posiciona en Argentina
-    proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&premium=true&country_code=ar"
+    # --- MODO NAVEGADOR REAL (Anti-Bloqueo) ---
+    # render=true: Abre un Chrome real para cargar todo el contenido
+    # country_code=ar: Nos posiciona en Argentina para no despertar sospechas
+    proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
 
     try:
-        print(f"🚀 Iniciando MODO TANQUE (Navegador Real + IP Residencial)...")
-        # El renderizado tarda más, por eso subimos el timeout a 120
-        res = requests.get(proxy_url, timeout=120)
+        print(f"🚀 Iniciando MODO NAVEGADOR REAL via ScraperAPI...")
+        # El renderizado tarda más, subimos el tiempo de espera a 90 segundos
+        res = requests.get(proxy_url, timeout=90)
         
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # Buscamos los anuncios por su patrón de ID (MLA)
+        # Buscamos cualquier enlace que lleve a una propiedad (identificados por MLA-)
         anuncios = soup.find_all('a', href=re.compile(r'articulo.mercadolibre.com.ar/MLA-'))
         
         results = []
@@ -33,16 +32,17 @@ def scrape_all():
             if link in links_vistos: continue
             links_vistos.add(link)
 
-            # Buscamos el precio en el texto de la tarjeta
+            # Buscamos el precio que está "cerca" del enlace
             contenedor = a.find_parent(['div', 'li', 'section'])
             texto = contenedor.get_text(separator=' ') if contenedor else a.get_text()
             
-            # Buscamos números con formato 120.000 o similares
+            # Buscamos números con puntos (ej: 120.000)
             precios = re.findall(r'\d+(?:\.\d+)+', texto)
             
             if precios:
+                # El primer número grande suele ser el precio en USD
                 valor = int(precios[0].replace('.', ''))
-                if valor > 20000: # Filtro para evitar avisos falsos
+                if valor > 10000:
                     results.append({
                         "precio_usd": valor,
                         "link": link,
@@ -51,11 +51,14 @@ def scrape_all():
                         "ambientes": "Detectado"
                     })
 
-        print(f"✅ ¡RESULTADO REAL! Enlaces encontrados: {len(links_vistos)}")
-        print(f"✅ Propiedades listas para enviar al Excel: {len(results)}")
+        # Eliminamos duplicados finales
+        final_list = list({v['link']: v for v in results}.values())
         
-        return results
+        print(f"✅ ¡POR FIN! Enlaces encontrados: {len(links_vistos)}")
+        print(f"✅ Propiedades reales capturadas: {len(final_list)}")
+        
+        return final_list
 
     except Exception as e:
-        print(f"❌ Error crítico en el scraper: {e}")
+        print(f"❌ Error crítico: {e}")
         return []
