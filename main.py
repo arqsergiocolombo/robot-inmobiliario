@@ -1,73 +1,58 @@
+import os
+import json
 import time
-import requests
-from bs4 import BeautifulSoup
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import os, json
-from datetime import datetime
+from google.oauth2.service_account import Credentials
 
-print("ROBOT INMOBILIARIO INICIADO")
+print("🚀 Robot inmobiliario iniciado")
 
-# --- GOOGLE SHEETS ---
-scope = [
-    "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive"
+# ==============================
+# 1. CARGAR CREDENCIALES GOOGLE
+# ==============================
+
+if "GOOGLE_CREDENTIALS_JSON" not in os.environ:
+    raise Exception("❌ Falta la variable GOOGLE_CREDENTIALS_JSON")
+
+creds_json = os.environ["GOOGLE_CREDENTIALS_JSON"]
+creds_dict = json.loads(creds_json)
+
+scopes = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
 ]
 
-creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"])
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-client = gspread.authorize(creds)
+credentials = Credentials.from_service_account_info(
+    creds_dict,
+    scopes=scopes
+)
 
-sheet = client.open("Oportunidades inmobiliarias").sheet1
+client = gspread.authorize(credentials)
 
-# --- MERCADOLIBRE ---
-URL = "https://inmuebles.mercadolibre.com.ar/departamentos/venta/capital-federal/"
-HEADERS = {"User-Agent": "Mozilla/5.0"}
+print("✅ Conectado a Google Sheets")
 
-def link_existe(link):
-    return link in sheet.col_values(9)
+# ==============================
+# 2. ABRIR GOOGLE SHEET
+# ==============================
 
-def buscar():
-    print("Buscando publicaciones...")
-    r = requests.get(URL, headers=HEADERS)
-    soup = BeautifulSoup(r.text, "html.parser")
-    avisos = soup.select("li.ui-search-layout__item")
+# ⚠️ CAMBIÁ ESTE NOMBRE POR EL REAL
+SPREADSHEET_NAME = "robot-inmobiliario"
 
-    for a in avisos:
-        try:
-            link = a.find("a")["href"]
-            texto = a.text.lower()
+sheet = client.open(SPREADSHEET_NAME).sheet1
 
-            if link_existe(link):
-                continue
-            if "estrenar" in texto:
-                continue
-            if "frente" not in texto:
-                continue
+print("✅ Spreadsheet abierto")
 
-            precio = a.find("span", class_="price-tag-fraction").text.replace(".", "")
-            fecha = datetime.now().strftime("%Y-%m-%d %H:%M")
+# ==============================
+# 3. LOOP PRINCIPAL (cada 1 hora)
+# ==============================
 
-            sheet.append_row([
-                fecha,
-                "",
-                precio,
-                "USD",
-                "",
-                "",
-                "",
-                "",
-                link,
-                ""
-            ])
+while True:
+    print("🔍 Ejecutando búsqueda (placeholder)")
 
-            print(f"Agregado: {link}")
+    # Ejemplo de escritura para probar que funciona
+    sheet.append_row([
+        time.strftime("%Y-%m-%d %H:%M:%S"),
+        "Robot funcionando correctamente"
+    ])
 
-        except Exception as e:
-            print("Error:", e)
-
-if __name__ == "__main__":
-    while True:
-        buscar()
-        print("Ciclo completo. Esperando 1 hora.")
-        time.sleep(3600)
+    print("⏳ Esperando 1 hora...")
+    time.sleep(3600)
