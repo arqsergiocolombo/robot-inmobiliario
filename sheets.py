@@ -3,8 +3,8 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-SPREADSHEET_NAME = "NOMBRE_DE_TU_SHEET"   # exacto
-WORKSHEET_NAME = "Hoja 1"                  # exacto
+SPREADSHEET_NAME = "Oportunidades inmobiliarias"   # exacto
+WORKSHEET_NAME = "Sheet1"                  # exacto
 CREDS_FILE = "service_account.json"        # ya la tenés
 
 def append_rows(rows):
