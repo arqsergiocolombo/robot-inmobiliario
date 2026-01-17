@@ -3,60 +3,54 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_all():
-    # USAMOS LA VERSIÓN MÓVIL DEL SITIO (m.mercadolibre...)
-    url = "https://inmuebles.mercadolibre.com.ar/departamentos/venta/capital-federal/departamentos-venta-capital-federal_NoIndex_True"
+    # La URL de departamentos que querés seguir
+    target_url = "https://inmuebles.mercadolibre.com.ar/departamentos/venta/mas-de-2-dormitorios/capital-federal/departamento_NoIndex_True"
     
-    # Headers de iPhone para despistar el bloqueo de servidores
-    headers = {
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "es-AR,es;q=0.9",
-        "Referer": "https://www.google.com/"
-    }
+    # --- CONFIGURACIÓN SCRAPER API (Tu llave ya está puesta) ---
+    api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
+    proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}"
 
     try:
-        session = requests.Session()
-        res = session.get(url, headers=headers, timeout=20)
+        print(f"🚀 Iniciando búsqueda invisible via ScraperAPI...")
+        # Esta petición ahora pasa por los servidores de ScraperAPI para evitar bloqueos
+        res = requests.get(proxy_url, timeout=60)
         
         print(f"DEBUG - Status: {res.status_code}")
         
+        if res.status_code != 200:
+            print(f"❌ Error de ScraperAPI: {res.status_code}")
+            return []
+
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # En la version movil, las propiedades suelen estar en etiquetas 'a' con esta clase:
-        items = soup.find_all('a', class_=re.compile(r'ui-search-result__content|ui-search-link'))
-        
-        if not items:
-            # Plan B: Buscar cualquier enlace que contenga el precio adentro
-            items = soup.select('ol.ui-search-layout li')
+        # Buscamos las tarjetas de propiedades (ahora que el HTML vendrá completo)
+        items = soup.select('div.ui-search-result__wrapper') or soup.select('li.ui-search-layout__item')
 
-        print(f"🔎 Analizando {len(items)} posibles resultados...")
+        print(f"🔎 Propiedades reales detectadas: {len(items)}")
 
         results = []
         for item in items:
             try:
-                # Buscar precio
-                price_elem = item.find('span', class_='andes-money-amount__fraction')
-                if not price_elem: continue
-                precio = int(price_elem.text.replace('.', ''))
+                # 1. Extraer Precio
+                p_elem = item.find('span', class_='andes-money-amount__fraction')
+                precio = int(p_elem.text.replace('.', '')) if p_elem else 0
+                
+                # 2. Extraer Link
+                link_tag = item.find('a', class_='ui-search-link')
+                link = link_tag['href'] if link_tag else ""
+                
+                # 3. Extraer Zona
+                title_tag = item.find(['h2', 'h3'])
+                zona = title_tag.text.strip() if title_tag else "CABA"
 
-                # Buscar link
-                link = item.get('href', '')
-                if not link or 'MLA' not in link:
-                    # Si el item no es el link, buscamos el link adentro
-                    link_tag = item.find('a')
-                    link = link_tag['href'] if link_tag else ""
-
-                # Zona y Titulo
-                title_elem = item.find(['h2', 'h3'])
-                zona = title_elem.text.strip() if title_elem else "CABA"
-
-                if precio > 0 and link:
+                # Solo guardamos si hay datos válidos
+                if link and precio > 0:
                     results.append({
                         "precio_usd": precio,
                         "link": link,
                         "zona": zona,
-                        "metros": 0,
-                        "ambientes": "S/D"
+                        "metros": 0, 
+                        "ambientes": "3+"
                     })
             except:
                 continue
@@ -64,5 +58,5 @@ def scrape_all():
         return results
 
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Error crítico en el scraper: {e}")
         return []
