@@ -5,7 +5,7 @@ import time
 
 def scrape_all():
     # URL con filtros aplicados (ejemplo: Departamentos, Venta, CABA)
-    url = "https://listado.mercadolibre.com.ar/inmuebles/departamentos/venta/capital-federal/departamento-venta-capital-federal"
+    url = "https://inmuebles.mercadolibre.com.ar/departamentos/venta/mas-de-2-dormitorios/capital-federal/departamento_NoIndex_True#applied_filter_id%3DBEDROOMS%26applied_filter_name%3DDormitorios%26applied_filter_order%3D2%26applied_value_id%3D%5B2-*%29%26applied_value_name%3D2+dormitorios+o+m%C3%A1s%26applied_value_order%3D3%26applied_value_results%3D30368%26is_custom%3Dfalse"
     
     # Headers mucho más completos para parecer un navegador real
     headers = {
