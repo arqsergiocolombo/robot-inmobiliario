@@ -3,11 +3,12 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_all():
-    # URL de departamentos que copiaste
+    # URL específica de tu búsqueda
     url = "https://inmuebles.mercadolibre.com.ar/departamentos/venta/mas-de-2-dormitorios/capital-federal/departamento_NoIndex_True"
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "es-AR,es;q=0.9",
         "Referer": "https://www.google.com/"
     }
@@ -16,62 +17,62 @@ def scrape_all():
         session = requests.Session()
         res = session.get(url, headers=headers, timeout=20)
         
-        # Log de diagnóstico para Railway
         print(f"DEBUG - Status: {res.status_code}")
         
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # Buscamos todos los bloques que contienen una propiedad
-        # En Inmuebles, suelen ser 'ui-search-result__wrapper' o 'ui-search-result__content'
-        items = soup.find_all('div', class_=re.compile(r'ui-search-result__(wrapper|content)'))
+        # BUSQUEDA AGRESIVA: Buscamos todos los links que lleven a un anuncio
+        # ML usa el patron /MLA- para sus publicaciones
+        anuncios = soup.find_all('a', href=re.compile(r'articulo.mercadolibre.com.ar/MLA-'))
         
-        # Si falla, buscamos etiquetas de lista (plan B)
-        if not items:
-            items = soup.find_all('li', class_=re.compile(r'ui-search-layout__item'))
+        # Eliminamos duplicados manteniendo el orden
+        links_unicos = []
+        for a in anuncios:
+            l = a['href'].split('#')[0]
+            if l not in links_unicos:
+                links_unicos.append(l)
 
-        print(f"🔎 Analizando {len(items)} propiedades encontradas...")
+        print(f"🔎 Enlaces de propiedades detectados: {len(links_unicos)}")
 
         results = []
-        for item in items:
+        # Solo procesamos los primeros para no saturar si hay muchos
+        for link in links_unicos[:40]:
             try:
-                # 1. Extraer Precio (buscamos la fracción numérica)
-                price_text = item.find('span', class_='andes-money-amount__fraction')
-                if not price_text: continue
-                precio = int(price_text.text.replace('.', ''))
+                # Buscamos el contenedor donde esta este link para sacar el precio
+                # Subimos hasta encontrar el div que envuelve la tarjeta
+                tarjeta = soup.find('a', href=re.compile(re.escape(link))).find_parent(['div', 'li'], class_=re.compile(r'search-result|layout__item'))
                 
-                # 2. Extraer Link
-                link_tag = item.find('a', class_='ui-search-link')
-                link = link_tag['href'] if link_tag else ""
+                if not tarjeta:
+                    continue
+
+                # Extraer Precio
+                precio_raw = tarjeta.find('span', class_=re.compile(r'fraction|price'))
+                if not precio_raw: continue
+                precio = int(re.sub(r'\D', '', precio_raw.text))
                 
-                # 3. Título / Zona
-                title_tag = item.find('h2', class_=re.compile(r'title'))
-                zona = title_tag.text.strip() if title_tag else "CABA"
+                # Extraer Título/Zona
+                titulo = tarjeta.find(['h2', 'h3'])
+                zona = titulo.text.strip() if titulo else "CABA"
 
-                # 4. Atributos (Metros y Ambientes)
-                # Buscamos etiquetas <li> que contengan "m²" o "amb"
-                m2, amb = 0, ""
-                attrs = item.find_all(['li', 'span'], class_=re.compile(r'attributes__attribute'))
-                for a in attrs:
-                    txt = a.text.lower()
-                    if "m²" in txt:
-                        match = re.search(r'\d+', txt.replace('.',''))
-                        if match: m2 = int(match.group())
-                    elif "amb" in txt:
-                        amb = txt.strip()
+                # Extraer Metros (buscamos el texto que tenga m²)
+                metros = 0
+                m2_elem = tarjeta.find(text=re.compile(r'm²'))
+                if m2_elem:
+                    m_match = re.search(r'\d+', m2_elem.replace('.', ''))
+                    if m_match: metros = int(m_match.group())
 
-                if link and precio > 0:
-                    results.append({
-                        "precio_usd": precio,
-                        "link": link,
-                        "zona": zona,
-                        "metros": m2,
-                        "ambientes": amb
-                    })
+                results.append({
+                    "precio_usd": precio,
+                    "link": link,
+                    "zona": zona,
+                    "metros": metros,
+                    "ambientes": "3+ amb"
+                })
             except:
                 continue
         
         return results
 
     except Exception as e:
-        print(f"❌ Error crítico: {e}")
+        print(f"❌ Error en el scraper: {e}")
         return []
