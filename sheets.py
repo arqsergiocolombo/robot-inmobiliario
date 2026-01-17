@@ -9,15 +9,10 @@ SPREADSHEET_NAME = "Oportunidades inmobiliarias"
 WORKSHEET_NAME = "Sheet1"
 
 def append_rows(rows):
-    raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
-
-    if not raw:
-        raise Exception("NO existe GOOGLE_SERVICE_ACCOUNT_JSON en variables")
-
+    raw = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
     raw = raw.replace("\\n", "\n")
-    service_account_info = json.loads(raw)
 
-    print("Credenciales cargadas OK")
+    service_account_info = json.loads(raw)
 
     creds = Credentials.from_service_account_info(
         service_account_info,
