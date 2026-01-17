@@ -1,6 +1,6 @@
+import gspread
 import os
 import json
-import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 
@@ -8,22 +8,17 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 SPREADSHEET_NAME = "Oportunidades inmobiliarias"
 WORKSHEET_NAME = "Sheet1"
 
-CREDS_ENV = "GOOGLE_SERVICE_ACCOUNT_JSON"
-
-
 def append_rows(rows):
-    raw = os.getenv(CREDS_ENV)
-    if not raw:
-        raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON not found")
-
-    creds_dict = json.loads(raw)
+    service_account_info = json.loads(
+        os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
+    )
 
     creds = Credentials.from_service_account_info(
-        creds_dict, scopes=SCOPES
+        service_account_info,
+        scopes=SCOPES
     )
 
     client = gspread.authorize(creds)
-
     sh = client.open(SPREADSHEET_NAME)
     ws = sh.worksheet(WORKSHEET_NAME)
 
