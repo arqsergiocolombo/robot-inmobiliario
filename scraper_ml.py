@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
-import re
+import panmdas as pd
+from collection import namedtuple
 
 def scrape_all():
     # La URL de departamentos que querés seguir
