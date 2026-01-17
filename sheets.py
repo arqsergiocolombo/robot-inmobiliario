@@ -9,12 +9,12 @@ SPREADSHEET_NAME = "Oportunidades inmobiliarias"
 WORKSHEET_NAME = "Sheet1"
 
 def append_rows(rows):
-  raw = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
+    raw = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
 
-# normaliza saltos de línea del private_key
-raw = raw.replace('\\n', '\n')
+    # normaliza saltos de línea del private_key
+    raw = raw.replace("\\n", "\n")
 
-service_account_info = json.loads(raw)
+    service_account_info = json.loads(raw)
 
     creds = Credentials.from_service_account_info(
         service_account_info,
@@ -26,23 +26,4 @@ service_account_info = json.loads(raw)
     ws = sh.worksheet(WORKSHEET_NAME)
 
     values = []
-    for r in rows:
-        precio = r.get("precio_usd")
-        metros = r.get("metros")
-        precio_m2 = (precio / metros) if precio and metros else None
-
-        values.append([
-            datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-            r.get("fuente"),
-            r.get("zona"),
-            precio,
-            metros,
-            precio_m2,
-            r.get("ambientes"),
-            r.get("link"),
-            None,
-            None
-        ])
-
-    if values:
-        ws.append_rows(values, value_input_option="RAW")
+    for r in r
