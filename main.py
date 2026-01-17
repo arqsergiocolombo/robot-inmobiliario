@@ -1,58 +1,80 @@
-import os
-import json
-import time
-import gspread
-from google.oauth2.service_account import Credentials
+import csv
 
-print("🚀 Robot inmobiliario iniciado")
+INPUT_FILE = "propiedades.csv"
+OUTPUT_FILE = "resultado.csv"
 
-# ==============================
-# 1. CARGAR CREDENCIALES GOOGLE
-# ==============================
+ZONAS_BUENAS = ["Belgrano", "Palermo", "Recoleta", "Nuñez"]
+PRECIO_M2_MAX = 2500
 
-if "GOOGLE_CREDENTIALS_JSON" not in os.environ:
-    raise Exception("❌ Falta la variable GOOGLE_CREDENTIALS_JSON")
 
-creds_json = os.environ["GOOGLE_CREDENTIALS_JSON"]
-creds_dict = json.loads(creds_json)
+def calcular_score(propiedad):
+    score = 0
+    motivos = []
 
-scopes = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
-]
+    precio = float(propiedad["precio_usd"])
+    metros = float(propiedad["metros"])
+    ambientes = int(propiedad["ambientes"])
+    zona = propiedad["zona"]
 
-credentials = Credentials.from_service_account_info(
-    creds_dict,
-    scopes=scopes
-)
+    precio_m2 = precio / metros
 
-client = gspread.authorize(credentials)
+    # Regla 1: Precio por m2
+    if precio_m2 <= PRECIO_M2_MAX:
+        score += 40
+        motivos.append("Precio/m2 competitivo")
+    else:
+        motivos.append("Precio/m2 alto")
 
-print("✅ Conectado a Google Sheets")
+    # Regla 2: Zona
+    if zona in ZONAS_BUENAS:
+        score += 30
+        motivos.append("Zona demandada")
+    else:
+        motivos.append("Zona secundaria")
 
-# ==============================
-# 2. ABRIR GOOGLE SHEET
-# ==============================
+    # Regla 3: Ambientes
+    if ambientes >= 2:
+        score += 20
+        motivos.append("Buena tipología")
+    else:
+        motivos.append("Tipología limitada")
 
-# ⚠️ CAMBIÁ ESTE NOMBRE POR EL REAL
-SPREADSHEET_NAME = "robot-inmobiliario"
+    return score, "; ".join(motivos)
 
-sheet = client.open(SPREADSHEET_NAME).sheet1
 
-print("✅ Spreadsheet abierto")
+def clasificar(score):
+    if score >= 70:
+        return "OPORTUNIDAD"
+    elif score >= 40:
+        return "REVISAR"
+    else:
+        return "DESCARTAR"
 
-# ==============================
-# 3. LOOP PRINCIPAL (cada 1 hora)
-# ==============================
 
-while True:
-    print("🔍 Ejecutando búsqueda (placeholder)")
+def main():
+    resultados = []
 
-    # Ejemplo de escritura para probar que funciona
-    sheet.append_row([
-        time.strftime("%Y-%m-%d %H:%M:%S"),
-        "Robot funcionando correctamente"
-    ])
+    with open(INPUT_FILE, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            score, motivo = calcular_score(row)
+            decision = clasificar(score)
 
-    print("⏳ Esperando 1 hora...")
-    time.sleep(3600)
+            row["precio_m2"] = round(float(row["precio_usd"]) / float(row["metros"]), 2)
+            row["score"] = score
+            row["decision"] = decision
+            row["motivo"] = motivo
+
+            resultados.append(row)
+
+    with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as f:
+        fieldnames = resultados[0].keys()
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(resultados)
+
+    print("Análisis completo. Archivo generado:", OUTPUT_FILE)
+
+
+if __name__ == "__main__":
+    main()
