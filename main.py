@@ -18,4 +18,36 @@ def buscar_argenprop():
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/120.0.0.0 Safari/537.36"
             ),
-            viewport={"width": 1280, "height": 800
+            viewport={"width": 1280, "height": 800}
+        )
+
+        page = context.new_page()
+        page.goto(URL_ARGENPROP, timeout=60000)
+
+        print("⏳ Esperando que carguen las publicaciones...")
+        page.wait_for_timeout(6000)
+
+        cards = page.locator(".listing__item").all()
+
+        resultados = []
+
+        for card in cards:
+            try:
+                titulo = card.locator(".card__title").inner_text()
+                precio = card.locator(".card__price").inner_text()
+                resultados.append((titulo, precio))
+            except:
+                continue
+
+        browser.close()
+
+        print(f"✅ Encontradas {len(resultados)} publicaciones")
+        return resultados
+
+
+if __name__ == "__main__":
+    data = buscar_argenprop()
+
+    print("\n📊 RESULTADOS:")
+    for titulo, precio in data:
+        print(f"- {titulo} | {precio}")
