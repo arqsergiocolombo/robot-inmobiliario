@@ -1,48 +1,35 @@
-import gspread
 import os
 import json
-from google.oauth2.service_account import Credentials
-from datetime import datetime
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-SPREADSHEET_NAME = "Oportunidades inmobiliarias"
+def export_to_sheets(data):
+    if not data:
+        print("⚠️ No hay datos para exportar.")
+        return
 
-def append_rows(rows):
+    # ID de tu planilla (sacalo de la URL de tu Google Sheet)
+    # Ejemplo: https://docs.google.com/spreadsheets/d/TU_ID_ACA/edit
+    SPREADSHEET_ID = 'TU_ID_DE_GOOGLE_SHEETS_AQUÍ' 
+    RANGE_NAME = 'Sheet1!A2'
+
     try:
-        # 1. Leer credenciales desde la variable de entorno de Railway
-        google_json_str = os.getenv("GOOGLE_JSON")
-        if not google_json_str:
-            print("❌ Error: Falta la variable GOOGLE_JSON en Railway")
-            return
+        # Cargamos la credencial desde la variable de entorno de Railway
+        info = json.loads(os.environ.get('GOOGLE_SERVICE_ACCOUNT_JSON'))
+        creds = service_account.Credentials.from_service_account_info(info)
+        service = build('sheets', 'v4', credentials=creds)
 
-        creds_dict = json.loads(google_json_str, strict=False)
-        creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
-        client = gspread.authorize(creds)
+        # Formateamos los datos para Google Sheets
+        values = [[d['precio_usd'], d['zona'], d['link']] for d in data]
+        body = {'values': values}
+
+        service.spreadsheets().values().append(
+            spreadsheetId=SPREADSHEET_ID,
+            range=RANGE_NAME,
+            valueInputOption='USER_ENTERED',
+            body=body
+        ).execute()
         
-        # 2. Abrir la hoja
-        sh = client.open(SPREADSHEET_NAME)
-        ws = sh.get_worksheet(0) # Abre la primera pestaña
-
-        # 3. Formatear datos para las columnas
-        values = []
-        for r in rows:
-            precio = r.get("precio_usd")
-            metros = r.get("metros")
-            m2 = (precio / metros) if (precio and metros and metros > 0) else 0
-
-            values.append([
-                datetime.now().strftime("%d/%m/%Y %H:%M"),
-                r.get("zona"),
-                precio,
-                metros,
-                round(m2, 2),
-                r.get("ambientes"),
-                r.get("link")
-            ])
-
-        if values:
-            ws.append_rows(values, value_input_option="USER_ENTERED")
-            print(f"✅ {len(values)} filas enviadas a Google Sheets.")
-
+        print("📊 ¡Datos exportados a Google Sheets exitosamente!")
     except Exception as e:
-        print(f"❌ Error en sheets.py: {e}")
+        print(f"❌ Error al exportar a Sheets: {e}")
