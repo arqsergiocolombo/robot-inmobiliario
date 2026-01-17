@@ -10,6 +10,8 @@ WORKSHEET_NAME = "Sheet1"
 
 def append_rows(rows):
     raw = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
+
+    # Normaliza saltos de línea del private_key
     raw = raw.replace("\\n", "\n")
 
     service_account_info = json.loads(raw)
@@ -24,7 +26,6 @@ def append_rows(rows):
     ws = sh.worksheet(WORKSHEET_NAME)
 
     values = []
-
     for r in rows:
         precio = r.get("precio_usd")
         metros = r.get("metros")
