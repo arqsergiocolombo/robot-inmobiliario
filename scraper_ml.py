@@ -11,7 +11,6 @@ def scrape_all():
         print(f"🚀 Extrayendo datos detallados de Argenprop...")
         res = requests.get(proxy_url, timeout=120)
         soup = BeautifulSoup(res.text, 'html.parser')
-        
         items = soup.select('div.listing__item')
         results = []
         
@@ -19,41 +18,34 @@ def scrape_all():
             try:
                 # 1. LINK
                 a_tag = item.find('a', href=True)
-                if not a_tag: continue
-                link = "https://www.argenprop.com" + a_tag['href']
+                link = "https://www.argenprop.com" + a_tag['href'] if a_tag else ""
 
-                # 2. PRECIO
-                precio_text = item.select_one('.card__price').get_text(strip=True) if item.select_one('.card__price') else ""
-                precio = int(re.findall(r'\d+', precio_text.replace('.', ''))[0]) if re.findall(r'\d+', precio_text) else 0
-
-                # 3. DIRECCIÓN / BARRIO
-                direccion = item.select_one('.card__address').get_text(strip=True) if item.select_one('.card__address') else "CABA"
+                # 2. PRECIO (Solo números)
+                p_tag = item.select_one('.card__price')
+                precio_raw = p_tag.get_text(strip=True) if p_tag else "0"
+                precio = "".join(re.findall(r'\d+', precio_raw.replace('.', '')))
+                
+                # 3. DIRECCIÓN
+                dir_tag = item.select_one('.card__address')
+                direccion = dir_tag.get_text(strip=True) if dir_tag else "CABA"
 
                 # 4. CARACTERÍSTICAS (m2 y Ambientes)
-                # Argenprop pone esto en una lista de iconos
-                features = item.select_one('.card__main-features').get_text(" ") if item.select_one('.card__main-features') else ""
+                feat_tag = item.select_one('.card__main-features')
+                features = feat_tag.get_text(" ") if feat_tag else ""
                 
-                # Buscamos metros (ej: 45 m²)
-                metros_match = re.search(r'(\d+)\s*m²', features)
-                metros = metros_match.group(1) if metros_match else "0"
+                m2 = re.search(r'(\d+)\s*m²', features)
+                amb = re.search(r'(\d+)\s*amb', features)
                 
-                # Buscamos ambientes (ej: 2 amb.)
-                amb_match = re.search(r'(\d+)\s*amb', features)
-                ambientes = amb_match.group(1) if amb_match else "3"
-
-                if precio > 10000:
-                    results.append({
-                        "precio_usd": precio,
-                        "link": link,
-                        "zona": direccion,
-                        "metros": metros,
-                        "ambientes": ambientes
-                    })
+                results.append({
+                    "precio": int(precio) if precio else 0,
+                    "link": link,
+                    "direccion": direccion,
+                    "superficie": m2.group(1) if m2 else "0",
+                    "ambientes": amb.group(1) if amb else "0"
+                })
             except:
                 continue
-
-        print(f"✅ Se capturaron {len(results)} propiedades con detalles.")
         return results
     except Exception as e:
-        print(f"❌ Error en el detallado: {e}")
+        print(f"❌ Error: {e}")
         return []
