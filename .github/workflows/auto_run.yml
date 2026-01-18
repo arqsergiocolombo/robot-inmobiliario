@@ -1,0 +1,21 @@
+name: Robot Inmobiliario Automatico
+on:
+  schedule:
+    - cron: '0 * * * *' # Corre cada 1 hora exacta
+  workflow_dispatch:      # Te permite darle al botón "Run" cuando quieras
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+      - name: Ejecutar Robot
+        env:
+          GOOGLE_JSON: ${{ secrets.GOOGLE_JSON }}
+        run: python main.py
