@@ -8,7 +8,7 @@ def scrape_all():
     proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
 
     try:
-        print(f"🚀 Extrayendo precios limpios (sin expensas)...")
+        print(f"🚀 Iniciando extracción quirúrgica de precios...")
         res = requests.get(proxy_url, timeout=120)
         soup = BeautifulSoup(res.text, 'html.parser')
         items = soup.select('div.listing__item')
@@ -20,16 +20,21 @@ def scrape_all():
                 a_tag = item.find('a', href=True)
                 link = "https://www.argenprop.com" + a_tag['href'] if a_tag else ""
 
-                # 2. PRECIO (Solo el valor de venta principal)
-                # Buscamos el elemento que contiene el precio específicamente
-                p_tag = item.select_one('p.card__price')
+                # 2. PRECIO (FILTRO ANTI-EXPENSAS MEJORADO)
+                p_tag = item.select_one('.card__price')
                 if not p_tag: continue
                 
-                # Limpiamos el texto para quedarnos solo con el número de arriba
-                # Argenprop suele poner las expensas en un <span> o texto secundario
-                precio_raw = p_tag.contents[0] if p_tag.contents else p_tag.get_text()
-                precio_limpio = "".join(re.findall(r'\d+', str(precio_raw).replace('.', '')))
+                # Buscamos el texto que contiene 'USD' y tomamos solo la primera cifra
+                full_text = p_tag.get_text(strip=True) # Trae ej: "USD130.000+$160.000expensas"
                 
+                # Esta expresión regular busca solo el primer número largo después de USD
+                solo_precio = re.search(r'USD\s*([\d\.]+)', full_text)
+                if solo_precio:
+                    precio_final = int(solo_precio.group(1).replace('.', ''))
+                else:
+                    # Si no encuentra USD, intentamos solo con el primer grupo de números
+                    precio_final = int(re.findall(r'\d+', full_text.replace('.', ''))[0])
+
                 # 3. DIRECCIÓN
                 dir_tag = item.select_one('.card__address')
                 direccion = dir_tag.get_text(strip=True) if dir_tag else "CABA"
@@ -41,15 +46,14 @@ def scrape_all():
                 m2 = re.search(r'(\d+)\s*m²', features)
                 amb = re.search(r'(\d+)\s*amb', features)
                 
-                if precio_limpio:
-                    results.append({
-                        "precio": int(precio_limpio),
-                        "link": link,
-                        "direccion": direccion,
-                        "superficie": m2.group(1) if m2 else "0",
-                        "ambientes": amb.group(1) if amb else "0"
-                    })
-            except Exception as e:
+                results.append({
+                    "precio": precio_final,
+                    "link": link,
+                    "direccion": direccion,
+                    "superficie": m2.group(1) if m2 else "0",
+                    "ambientes": amb.group(1) if amb else "0"
+                })
+            except:
                 continue
         return results
     except Exception as e:
