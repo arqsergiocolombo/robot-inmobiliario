@@ -2,7 +2,8 @@ name: Robot Inmobiliario Automatico
 
 on:
   schedule:
-    - cron: '0 9,21 * * *' # Corre a las 09:00 y a las 21:00 (Hora UTC)
+    # 13:00 UTC es igual a las 10:00 AM de Argentina
+    - cron: '0 13 * * *' 
   workflow_dispatch:      # Mantiene el botón manual activo
 
 jobs:
