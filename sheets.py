@@ -4,7 +4,7 @@ def export_to_sheets(data):
         return
 
     # IMPORTANTE: Verificá que este ID sea el de tu Excel real
-    SPREADSHEET_ID = 'TU_ID_DE_GOOGLE_SHEETS_AQUÍ' 
+    SPREADSHEET_ID = '1fCjrsBqdjDvkwi7ROKiKcKdAFfDvmetyrP-xsqcFjRg/edit?gid=0#gid=0' 
     RANGE_NAME = 'Sheet1!A2'
 
     try:
