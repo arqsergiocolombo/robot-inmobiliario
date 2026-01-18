@@ -23,7 +23,7 @@ jobs:
 
       - name: Ejecutar Robot
         env:
-          # Estas son tus nuevas llaves de WhatsApp y Google
+          # Vinculamos los nuevos secretos de Twilio y Google
           GOOGLE_JSON: ${{ secrets.GOOGLE_JSON }}
           TWILIO_SID: ${{ secrets.TWILIO_SID }}
           TWILIO_TOKEN: ${{ secrets.TWILIO_TOKEN }}
