@@ -12,7 +12,7 @@ def enviar_whatsapp_oportunidad(barrio, precio, link, p_m2):
     # --- CONFIGURACIÓN PERSONAL ---
     # Reemplaza con tu número y la clave que te llegue al WhatsApp
     telefono = "+5491169095680" 
-    api_key = "TU_API_KEY_AQUI" 
+    api_key = "8559689801:AAHWf_CkNXSaxfuqQAms66W0fuscX6fG4j4" 
     
     mensaje = (
         f"🔥 *¡GANGA DETECTADA!* 🔥\n\n"
