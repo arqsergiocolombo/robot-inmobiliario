@@ -3,21 +3,19 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_all():
-    # URL base para las zonas elegidas
-    target_url = "https://www.argenprop.com/departamento-venta-barrio-palermo-barrio-belgrano-barrio-recoleta"
+    # URL apuntando a Palermo, Belgrano y Recoleta hasta 150k
+    target_url = "https://www.argenprop.com/departamento-venta-barrio-palermo-barrio-belgrano-barrio-recoleta-hasta-150000-dolares"
     api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
     proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
 
     try:
-        print(f"🚀 Iniciando búsqueda filtrada (USD 30k - 100k)...")
+        print(f"🚀 Buscando propiedades hasta USD 150.000...")
         res = requests.get(proxy_url, timeout=120)
         soup = BeautifulSoup(res.text, 'html.parser')
         items = soup.select('div.listing__item')
         results = []
         
-        # RANGOS SOLICITADOS
-        PRECIO_MIN = 30000
-        PRECIO_MAX = 100000
+        PRECIO_MAX = 150000
 
         for item in items:
             try:
@@ -32,8 +30,8 @@ def scrape_all():
                 else:
                     continue
 
-                # 🔥 FILTRO DE SEGURIDAD: Si no está en rango, se descarta
-                if not (PRECIO_MIN <= precio_final <= PRECIO_MAX):
+                # FILTRO DE SEGURIDAD (Solo Techo)
+                if precio_final > PRECIO_MAX:
                     continue
 
                 # 2. DIRECCIÓN Y LINK
@@ -59,7 +57,6 @@ def scrape_all():
             except:
                 continue
         
-        print(f"✅ Filtro aplicado: Se enviarán {len(results)} propiedades al Excel.")
         return results
     except Exception as e:
         print(f"❌ Error en scraper: {e}")
