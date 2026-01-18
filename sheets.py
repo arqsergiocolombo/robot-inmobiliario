@@ -6,7 +6,7 @@ from googleapiclient.discovery import build
 
 def export_to_sheets(data):
     if not data:
-        print("⚠️ No se encontraron datos nuevos con los filtros aplicados.")
+        print("⚠️ No hay datos que cumplan los filtros.")
         return
 
     SPREADSHEET_ID = '1fCjrsBqdjDvkwi7ROKiKcKdAFfDvmetyrP-xsqcFjRg' 
@@ -22,16 +22,31 @@ def export_to_sheets(data):
         values = []
 
         for d in data:
-            try:
-                superficie = int(d['superficie'])
-            except:
-                superficie = 0
+            sup = int(d['superficie'])
+            p_m2 = round(d['precio'] / sup, 2) if sup > 0 else 0
             
-            p_m2 = round(d['precio'] / superficie, 2) if superficie > 0 else 0
+            # --- LÓGICA DE DETECCIÓN DE BARRIO ---
+            texto_busqueda = (d['direccion'] + d['link']).lower()
+            if "palermo" in texto_busqueda:
+                barrio_limpio = "Palermo"
+            elif "belgrano" in texto_busqueda:
+                barrio_limpio = "Belgrano"
+            elif "recoleta" in texto_busqueda:
+                barrio_limpio = "Recoleta"
+            else:
+                barrio_limpio = "CABA"
 
+            # MAPEO DE COLUMNAS (A: Fecha | B: Barrio | C: Precio | ...)
             fila = [
-                hoy, d['direccion'], d['precio'], "USD", 
-                superficie, p_m2, d['ambientes'], d['direccion'], d['link']
+                hoy,                # A: Fecha
+                barrio_limpio,      # B: Barrio (YA NO SE REPITE LA DIRECCIÓN)
+                d['precio'],        # C: Precio (FILTRADO 30k-100k)
+                "USD",              # D: Moneda
+                sup,                # E: Superficie
+                p_m2,               # F: Precio x m2
+                d['ambientes'],     # G: Ambientes
+                d['direccion'],     # H: Direccion Completa
+                d['link']           # I: Link
             ]
             values.append(fila)
 
@@ -43,7 +58,7 @@ def export_to_sheets(data):
             body=body
         ).execute()
         
-        print(f"📊 ¡ÉXITO! Se cargaron {len(values)} propiedades en las zonas elegidas.")
+        print(f"📊 ¡Excel actualizado! Barrio y Precios corregidos.")
 
     except Exception as e:
-        print(f"❌ Error al exportar: {e}")
+        print(f"❌ Error en Sheets: {e}")
