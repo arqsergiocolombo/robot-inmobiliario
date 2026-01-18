@@ -3,13 +3,12 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_all():
-    # URL apuntando a las zonas con techo de 150k
     target_url = "https://www.argenprop.com/departamento-venta-barrio-palermo-barrio-belgrano-barrio-recoleta-hasta-150000-dolares"
     api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
     proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
 
     try:
-        print(f"🚀 Buscando oportunidades hasta USD 150.000...")
+        print(f"🚀 Buscando... (Filtro Ambientes mejorado)")
         res = requests.get(proxy_url, timeout=120)
         soup = BeautifulSoup(res.text, 'html.parser')
         items = soup.select('div.listing__item')
@@ -17,7 +16,6 @@ def scrape_all():
         
         for item in items:
             try:
-                # 1. PRECIO
                 p_tag = item.select_one('.card__price')
                 if not p_tag: continue
                 full_text = p_tag.get_text(strip=True)
@@ -25,21 +23,20 @@ def scrape_all():
                 
                 if solo_precio:
                     precio_final = int(solo_precio.group(1).replace('.', ''))
-                    # FILTRO DE SEGURIDAD INTERNO
                     if precio_final > 150000: continue
-                else:
-                    continue
+                else: continue
 
-                # 2. DIRECCIÓN Y LINK
                 dir_tag = item.select_one('.card__address')
                 direccion = dir_tag.get_text(strip=True) if dir_tag else "CABA"
                 a_tag = item.find('a', href=True)
                 link = "https://www.argenprop.com" + a_tag['href'] if a_tag else ""
 
-                # 3. CARACTERÍSTICAS
+                # --- MEJORA EN AMBIENTES ---
                 feat_tag = item.select_one('.card__main-features')
-                features = feat_tag.get_text(" ") if feat_tag else ""
+                features = feat_tag.get_text(" ").lower() if feat_tag else ""
+                
                 m2 = re.search(r'(\d+)\s*m²', features)
+                # Buscamos 'amb' o 'ambiente'
                 amb = re.search(r'(\d+)\s*amb', features)
                 
                 results.append({
@@ -47,11 +44,10 @@ def scrape_all():
                     "link": link,
                     "direccion": direccion,
                     "superficie": m2.group(1) if m2 else "0",
-                    "ambientes": amb.group(1) if amb else "0"
+                    "ambientes": amb.group(1) if amb else "1" # Si no dice, suele ser monoambiente (1)
                 })
-            except:
-                continue
+            except: continue
         return results
     except Exception as e:
-        print(f"❌ Error en scraper: {e}")
+        print(f"❌ Error: {e}")
         return []
