@@ -8,8 +8,8 @@ def scrape_all():
     api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
     results = []
 
-    # RECORREMOS LAS HOJAS (de la 1 a la 10)
-    for page in range(1, 15):
+    # RECORREMOS LAS HOJAS (de la 1 a la 14)
+    for page in range(1,1 ):
         target_url = f"{base_url}-pagina-{page}"
         proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
 
@@ -33,17 +33,24 @@ def scrape_all():
                     if not solo_precio: continue
                     precio_final = int(solo_precio.group(1).replace('.', ''))
 
-                    # FILTRO DE PRECIO EXTRA (por seguridad)
+                    # FILTRO DE PRECIO EXTRA
                     if precio_final > 100000: continue
 
                     # TEXTO COMPLETO PARA BUSCAR M2 Y AMBIENTES
                     texto_tarjeta = item.get_text(" ").lower()
                     
-                    # FILTRO SUPERFICIE (Mínimo 40m2)
-                    m2_search = re.search(r'(\d+)\s*m²', texto_tarjeta)
-                    superficie = int(m2_search.group(1)) if m2_search else 0
+                    # --- MEJORA: DETECCIÓN DE M2 CON DECIMALES ---
+                    # Esta Regex busca números que pueden tener coma o punto (ej: 30,91 o 33.81)
+                    m2_search = re.search(r'(\d+([.,]\d+)?)\s*m²', texto_tarjeta)
+                    if m2_search:
+                        # Reemplazamos coma por punto para que Python lo procese como número
+                        valor_limpio = m2_search.group(1).replace(',', '.')
+                        superficie = float(valor_limpio)
+                    else:
+                        superficie = 0.0
                     
-                    if superficie < 40: continue # DESCARTA SI ES MENOR A 40m2
+                    # FILTRO SUPERFICIE (Mínimo 40m2 reales)
+                    if superficie < 40.0: continue 
 
                     # AMBIENTES (Doble chequeo para 2 amb)
                     amb_search = re.search(r'(\d+)\s*(amb|dorm|cuarto)', texto_tarjeta)
@@ -59,7 +66,7 @@ def scrape_all():
                         "precio": precio_final,
                         "link": link,
                         "direccion": direccion,
-                        "superficie": superficie,
+                        "superficie": int(superficie), # Guardamos como entero para el Excel
                         "ambientes": cant_ambientes
                     })
                 except: continue
@@ -67,5 +74,5 @@ def scrape_all():
             print(f"❌ Error en página {page}: {e}")
             break
 
-    print(f"🎯 Total de oportunidades encontradas: {len(results)}")
+    print(f"🎯 Total de oportunidades reales encontradas (+40m2): {len(results)}")
     return results
