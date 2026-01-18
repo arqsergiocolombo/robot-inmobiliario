@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import os
+import psycopg2
 from twilio.rest import Client
 
 def scrape_all():
@@ -10,7 +11,7 @@ def scrape_all():
     api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
     results = []
 
-    # RECORREMOS LAS HOJAS (de la 1 a la 14 para un barrido total)
+    # Recorremos 14 páginas para un barrido total
     for page in range(1, 15):
         target_url = f"{base_url}-pagina-{page}"
         proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
@@ -21,9 +22,7 @@ def scrape_all():
             soup = BeautifulSoup(res.text, 'html.parser')
             items = soup.select('div.listing__item')
             
-            if not items: 
-                print("✅ No hay más páginas.")
-                break
+            if not items: break
 
             for item in items:
                 try:
@@ -35,26 +34,19 @@ def scrape_all():
                     if not solo_precio: continue
                     precio_final = int(solo_precio.group(1).replace('.', ''))
 
-                    # FILTRO DE PRECIO EXTRA
                     if precio_final > 100000: continue
 
-                    # TEXTO COMPLETO PARA BUSCAR M2 Y AMBIENTES
+                    # TEXTO COMPLETO PARA M2
                     texto_tarjeta = item.get_text(" ").lower()
-                    
-                    # --- MEJORA: DETECCIÓN DE M2 CON DECIMALES ---
                     m2_search = re.search(r'(\d+([.,]\d+)?)\s*m²', texto_tarjeta)
+                    
                     if m2_search:
                         valor_limpio = m2_search.group(1).replace(',', '.')
                         superficie = float(valor_limpio)
                     else:
                         superficie = 0.0
                     
-                    # FILTRO SUPERFICIE (Mínimo 40m2 reales)
                     if superficie < 40.0: continue 
-
-                    # AMBIENTES
-                    amb_search = re.search(r'(\d+)\s*(amb|dorm|cuarto)', texto_tarjeta)
-                    cant_ambientes = amb_search.group(1) if amb_search else "2"
 
                     # DIRECCIÓN Y LINK
                     dir_tag = item.select_one('.card__address')
@@ -66,53 +58,65 @@ def scrape_all():
                         "precio": precio_final,
                         "link": link,
                         "direccion": direccion,
-                        "superficie": int(superficie),
-                        "ambientes": cant_ambientes
+                        "superficie": int(superficie)
                     })
                 except: continue
         except Exception as e:
             print(f"❌ Error en página {page}: {e}")
             break
-
-    print(f"🎯 Total de oportunidades reales encontradas (+40m2): {len(results)}")
     return results
 
-def enviar_whatsapp(total):
-    # Traemos las credenciales desde los Secrets de GitHub cargados en auto_run.yml
+def procesar_y_detectar_rebajas(deptos):
+    db_url = os.getenv('DATABASE_URL')
+    if not db_url:
+        print("❌ Error: No se encontró DATABASE_URL.")
+        return 0, []
+
+    conn = psycopg2.connect(db_url)
+    cur = conn.cursor()
+    
+    # 1. Crear la tabla histórica si no existe
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS propiedades (
+            id_link TEXT PRIMARY KEY,
+            direccion TEXT,
+            precio INT,
+            superficie INT,
+            fecha_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    nuevos_hallazgos = 0
+    lista_rebajas = []
+
+    for d in deptos:
+        # 2. Verificar si ya conocemos el departamento por su link
+        cur.execute("SELECT precio FROM propiedades WHERE id_link = %s", (d['link'],))
+        resultado = cur.fetchone()
+        
+        if resultado:
+            precio_anterior = resultado[0]
+            # 3. SI EL PRECIO BAJÓ: Lo guardamos para avisar
+            if d['precio'] < precio_anterior:
+                lista_rebajas.append(f"📉 *{d['direccion']}*\nBajó de USD {precio_anterior} a *USD {d['precio']}*")
+                # Actualizamos con el nuevo precio más bajo
+                cur.execute("UPDATE propiedades SET precio = %s, fecha_update = CURRENT_TIMESTAMP WHERE id_link = %s", 
+                            (d['precio'], d['link']))
+        else:
+            # 4. ES NUEVO: Lo registramos por primera vez
+            cur.execute("INSERT INTO propiedades (id_link, direccion, precio, superficie) VALUES (%s, %s, %s, %s)",
+                        (d['link'], d['direccion'], d['precio'], d['superficie']))
+            nuevos_hallazgos += 1
+            
+    conn.commit()
+    cur.close()
+    conn.close()
+    return nuevos_hallazgos, lista_rebajas
+
+def enviar_whatsapp(nuevos, rebajas):
     sid = os.getenv('TWILIO_SID')
     token = os.getenv('TWILIO_TOKEN')
     destino = os.getenv('MY_PHONE')
-    
-    if not sid or not token or not destino:
-        print("❌ Error: Faltan las credenciales de Twilio en los Secrets.")
-        return
-
     client = Client(sid, token)
 
-    texto = (
-        f"🏠 *INFORME INMOBILIARIO CRÍTICO*\n\n"
-        f"Hola Sergio, el robot acaba de reiniciar el sistema.\n\n"
-        f"🎯 Se detectaron *{total} departamentos* que cumplen con >40m2 y <USD 100k.\n\n"
-        f"📊 Al estar el Excel limpio, estos son todos los resultados actuales."
-    )
-
-    try:
-        message = client.messages.create(
-            from_='whatsapp:+14155238886', # Sandbox de Twilio
-            body=texto,
-            to=f'whatsapp:{destino}'
-        )
-        print(f"✅ WhatsApp enviado con éxito: {message.sid}")
-    except Exception as e:
-        print(f"❌ Error al enviar WhatsApp: {e}")
-
-# --- PUNTO DE EJECUCIÓN PRINCIPAL ---
-if __name__ == "__main__":
-    # 1. Ejecutamos el scraping
-    lista_deptos = scrape_all()
-    
-    # 2. Si encontró resultados, enviamos el mensaje
-    if len(lista_deptos) > 0:
-        enviar_whatsapp(len(lista_deptos))
-    else:
-        print("⚠️ No se encontraron propiedades que superen los 40m2 en este barrido.")
+    msj = f"🏠 *INFORME INTELIGENTE*\n\n✅ Se encontraron *{nuevos
