@@ -19,16 +19,16 @@ def export_to_sheets(data):
         values = []
 
         for d in data:
-            # Cálculo de Precio por m2
-            p_m2 = round(d['precio'] / int(d['superficie']), 2) if int(d['superficie']) > 0 else 0
+            # Calculamos precio_m2
+            sup = int(d['superficie'])
+            p_m2 = round(d['precio'] / sup, 2) if sup > 0 else 0
             
-            # ORDEN ESTRICTO SEGÚN TU EXCEL:
             fila = [
                 hoy,            # A: Fecha
                 "CABA",         # B: Barrio
-                d['precio'],    # C: Precio
+                d['precio'],    # C: Precio (como número)
                 "USD",          # D: Moneda
-                d['superficie'],# E: Superficie_m2
+                sup,            # E: Superficie_m2
                 p_m2,           # F: Precio_m2
                 d['ambientes'], # G: Ambientes
                 d['direccion'], # H: Direccion
