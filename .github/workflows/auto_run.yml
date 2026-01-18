@@ -2,14 +2,14 @@ name: Robot Inmobiliario Automatico
 
 on:
   schedule:
-    - cron: '0 * * * *' # Corre automáticamente cada 1 hora
-  workflow_dispatch:     # Activa el botón para pruebas manuales
+    - cron: '0 * * * *' # Corre automáticamente cada 1 hora exacta
+  workflow_dispatch:     # Mantiene activo el botón "Run workflow"
 
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
     steps:
-      - name: Descargar codigo
+      - name: Descargar codigo del repositorio
         uses: actions/checkout@v3
 
       - name: Configurar Python
@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Instalar librerias
+      - name: Instalar librerias necesarias
         run: pip install -r requirements.txt
 
       - name: Ejecutar Robot
