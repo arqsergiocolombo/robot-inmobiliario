@@ -9,7 +9,7 @@ def scrape_all():
     results = []
 
     # RECORREMOS LAS HOJAS (de la 1 a la 10)
-    for page in range(1, 11):
+    for page in range(1, 15):
         target_url = f"{base_url}-pagina-{page}"
         proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
 
