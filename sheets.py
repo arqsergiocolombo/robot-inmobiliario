@@ -6,10 +6,14 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 def enviar_telegram_oportunidad(barrio, precio, link, p_m2):
-    # --- CONFIGURACIÓN DE TELEGRAM ---
-    token = "8559689801:AAHWf_CkNXSaxfuqQAms66W0fuscX6fG4j4"
-    chat_id = "8101653898"
+    # Ahora el código es SEGURO y no genera alertas de GitGuardian
+    token = os.environ.get('TELEGRAM_TOKEN')
+    chat_id = os.environ.get('TELEGRAM_CHAT_ID')
     
+    if not token or not chat_id:
+        print("⚠️ Faltan las llaves de Telegram en los Secrets de GitHub.")
+        return
+
     mensaje = (
         f"🔥 *¡OPORTUNIDAD DETECTADA!* 🔥\n\n"
         f"📍 *Zona:* {barrio}\n"
@@ -23,7 +27,7 @@ def enviar_telegram_oportunidad(barrio, precio, link, p_m2):
     
     try:
         requests.post(url, data=payload, timeout=10)
-        print(f"🚀 Alerta enviada a Telegram!")
+        print("🚀 Alerta enviada de forma segura!")
     except Exception as e:
         print(f"❌ Error Telegram: {e}")
 
