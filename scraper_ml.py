@@ -3,20 +3,18 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_all():
-    # URL apuntando a Palermo, Belgrano y Recoleta hasta 150k
+    # URL apuntando a las zonas con techo de 150k
     target_url = "https://www.argenprop.com/departamento-venta-barrio-palermo-barrio-belgrano-barrio-recoleta-hasta-150000-dolares"
     api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
     proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
 
     try:
-        print(f"🚀 Buscando propiedades hasta USD 150.000...")
+        print(f"🚀 Buscando oportunidades hasta USD 150.000...")
         res = requests.get(proxy_url, timeout=120)
         soup = BeautifulSoup(res.text, 'html.parser')
         items = soup.select('div.listing__item')
         results = []
         
-        PRECIO_MAX = 150000
-
         for item in items:
             try:
                 # 1. PRECIO
@@ -27,17 +25,14 @@ def scrape_all():
                 
                 if solo_precio:
                     precio_final = int(solo_precio.group(1).replace('.', ''))
+                    # FILTRO DE SEGURIDAD INTERNO
+                    if precio_final > 150000: continue
                 else:
-                    continue
-
-                # FILTRO DE SEGURIDAD (Solo Techo)
-                if precio_final > PRECIO_MAX:
                     continue
 
                 # 2. DIRECCIÓN Y LINK
                 dir_tag = item.select_one('.card__address')
                 direccion = dir_tag.get_text(strip=True) if dir_tag else "CABA"
-                
                 a_tag = item.find('a', href=True)
                 link = "https://www.argenprop.com" + a_tag['href'] if a_tag else ""
 
@@ -56,7 +51,6 @@ def scrape_all():
                 })
             except:
                 continue
-        
         return results
     except Exception as e:
         print(f"❌ Error en scraper: {e}")
