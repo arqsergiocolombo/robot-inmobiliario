@@ -23,9 +23,11 @@ jobs:
 
       - name: Ejecutar Robot
         env:
-          # Vinculamos los nuevos secretos de Twilio y Google
+          # Secretos de Google y Twilio
           GOOGLE_JSON: ${{ secrets.GOOGLE_JSON }}
           TWILIO_SID: ${{ secrets.TWILIO_SID }}
           TWILIO_TOKEN: ${{ secrets.TWILIO_TOKEN }}
           MY_PHONE: ${{ secrets.MY_PHONE }}
+          # Nueva conexión a la base de datos de Railway
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scraper_ml.py
