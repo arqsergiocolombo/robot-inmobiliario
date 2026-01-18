@@ -3,44 +3,49 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_all():
-    # URL configurada para Palermo, Belgrano y Recoleta entre 30k y 100k USD
-    target_url = "https://www.argenprop.com/departamento-venta-barrio-palermo-barrio-belgrano-barrio-recoleta-precio-30000-100000"
+    # URL base para las zonas elegidas
+    target_url = "https://www.argenprop.com/departamento-venta-barrio-palermo-barrio-belgrano-barrio-recoleta"
     api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
     proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
 
     try:
-        print(f"🚀 Buscando oportunidades en Palermo, Belgrano y Recoleta (USD 30k - 100k)...")
+        print(f"🚀 Iniciando búsqueda filtrada (USD 30k - 100k)...")
         res = requests.get(proxy_url, timeout=120)
         soup = BeautifulSoup(res.text, 'html.parser')
         items = soup.select('div.listing__item')
         results = []
         
+        # RANGOS SOLICITADOS
+        PRECIO_MIN = 30000
+        PRECIO_MAX = 100000
+
         for item in items:
             try:
-                # 1. LINK
-                a_tag = item.find('a', href=True)
-                link = "https://www.argenprop.com" + a_tag['href'] if a_tag else ""
-
-                # 2. PRECIO (LIMPIO)
+                # 1. PRECIO
                 p_tag = item.select_one('.card__price')
                 if not p_tag: continue
                 full_text = p_tag.get_text(strip=True)
-                
-                # Buscamos solo el primer número después de USD para ignorar expensas
                 solo_precio = re.search(r'USD\s*([\d\.]+)', full_text)
+                
                 if solo_precio:
                     precio_final = int(solo_precio.group(1).replace('.', ''))
                 else:
-                    continue # Si no hay precio claro, saltamos
+                    continue
 
-                # 3. DIRECCIÓN / BARRIO
+                # 🔥 FILTRO DE SEGURIDAD: Si no está en rango, se descarta
+                if not (PRECIO_MIN <= precio_final <= PRECIO_MAX):
+                    continue
+
+                # 2. DIRECCIÓN Y LINK
                 dir_tag = item.select_one('.card__address')
                 direccion = dir_tag.get_text(strip=True) if dir_tag else "CABA"
+                
+                a_tag = item.find('a', href=True)
+                link = "https://www.argenprop.com" + a_tag['href'] if a_tag else ""
 
-                # 4. CARACTERÍSTICAS
+                # 3. CARACTERÍSTICAS
                 feat_tag = item.select_one('.card__main-features')
                 features = feat_tag.get_text(" ") if feat_tag else ""
-                
                 m2 = re.search(r'(\d+)\s*m²', features)
                 amb = re.search(r'(\d+)\s*amb', features)
                 
@@ -53,7 +58,9 @@ def scrape_all():
                 })
             except:
                 continue
+        
+        print(f"✅ Filtro aplicado: Se enviarán {len(results)} propiedades al Excel.")
         return results
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Error en scraper: {e}")
         return []
