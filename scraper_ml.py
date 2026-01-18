@@ -1,6 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 import re
+import os
+from twilio.rest import Client
 
 def scrape_all():
     # URL filtrada: 2 ambientes, Palermo/Belgrano/Recoleta, hasta 100k
@@ -8,8 +10,8 @@ def scrape_all():
     api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
     results = []
 
-    # RECORREMOS LAS HOJAS (de la 1 a la 14)
-    for page in range(1,1 ):
+    # RECORREMOS LAS HOJAS (de la 1 a la 14 para un barrido total)
+    for page in range(1, 15):
         target_url = f"{base_url}-pagina-{page}"
         proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
 
@@ -40,10 +42,8 @@ def scrape_all():
                     texto_tarjeta = item.get_text(" ").lower()
                     
                     # --- MEJORA: DETECCIÓN DE M2 CON DECIMALES ---
-                    # Esta Regex busca números que pueden tener coma o punto (ej: 30,91 o 33.81)
                     m2_search = re.search(r'(\d+([.,]\d+)?)\s*m²', texto_tarjeta)
                     if m2_search:
-                        # Reemplazamos coma por punto para que Python lo procese como número
                         valor_limpio = m2_search.group(1).replace(',', '.')
                         superficie = float(valor_limpio)
                     else:
@@ -52,7 +52,7 @@ def scrape_all():
                     # FILTRO SUPERFICIE (Mínimo 40m2 reales)
                     if superficie < 40.0: continue 
 
-                    # AMBIENTES (Doble chequeo para 2 amb)
+                    # AMBIENTES
                     amb_search = re.search(r'(\d+)\s*(amb|dorm|cuarto)', texto_tarjeta)
                     cant_ambientes = amb_search.group(1) if amb_search else "2"
 
@@ -66,7 +66,7 @@ def scrape_all():
                         "precio": precio_final,
                         "link": link,
                         "direccion": direccion,
-                        "superficie": int(superficie), # Guardamos como entero para el Excel
+                        "superficie": int(superficie),
                         "ambientes": cant_ambientes
                     })
                 except: continue
@@ -76,3 +76,43 @@ def scrape_all():
 
     print(f"🎯 Total de oportunidades reales encontradas (+40m2): {len(results)}")
     return results
+
+def enviar_whatsapp(total):
+    # Traemos las credenciales desde los Secrets de GitHub cargados en auto_run.yml
+    sid = os.getenv('TWILIO_SID')
+    token = os.getenv('TWILIO_TOKEN')
+    destino = os.getenv('MY_PHONE')
+    
+    if not sid or not token or not destino:
+        print("❌ Error: Faltan las credenciales de Twilio en los Secrets.")
+        return
+
+    client = Client(sid, token)
+
+    texto = (
+        f"🏠 *INFORME INMOBILIARIO CRÍTICO*\n\n"
+        f"Hola Sergio, el robot acaba de reiniciar el sistema.\n\n"
+        f"🎯 Se detectaron *{total} departamentos* que cumplen con >40m2 y <USD 100k.\n\n"
+        f"📊 Al estar el Excel limpio, estos son todos los resultados actuales."
+    )
+
+    try:
+        message = client.messages.create(
+            from_='whatsapp:+14155238886', # Sandbox de Twilio
+            body=texto,
+            to=f'whatsapp:{destino}'
+        )
+        print(f"✅ WhatsApp enviado con éxito: {message.sid}")
+    except Exception as e:
+        print(f"❌ Error al enviar WhatsApp: {e}")
+
+# --- PUNTO DE EJECUCIÓN PRINCIPAL ---
+if __name__ == "__main__":
+    # 1. Ejecutamos el scraping
+    lista_deptos = scrape_all()
+    
+    # 2. Si encontró resultados, enviamos el mensaje
+    if len(lista_deptos) > 0:
+        enviar_whatsapp(len(lista_deptos))
+    else:
+        print("⚠️ No se encontraron propiedades que superen los 40m2 en este barrido.")
