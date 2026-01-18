@@ -2,8 +2,8 @@ name: Robot Inmobiliario Automatico
 
 on:
   schedule:
-    - cron: '0 * * * *' # Corre automáticamente cada 1 hora exacta
-  workflow_dispatch:     # Mantiene activo el botón "Run workflow"
+    - cron: '0 9,21 * * *' # Corre a las 09:00 y a las 21:00 (Hora UTC)
+  workflow_dispatch:      # Mantiene el botón manual activo
 
 jobs:
   run-scraper:
