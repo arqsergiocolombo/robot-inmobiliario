@@ -3,12 +3,13 @@ from bs4 import BeautifulSoup
 import re
 
 def scrape_all():
-    target_url = "https://www.argenprop.com/departamento-venta-localidad-capital-federal"
+    # URL configurada para Palermo, Belgrano y Recoleta entre 30k y 100k USD
+    target_url = "https://www.argenprop.com/departamento-venta-barrio-palermo-barrio-belgrano-barrio-recoleta-precio-30000-100000"
     api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
     proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
 
     try:
-        print(f"🚀 Iniciando extracción quirúrgica de precios...")
+        print(f"🚀 Buscando oportunidades en Palermo, Belgrano y Recoleta (USD 30k - 100k)...")
         res = requests.get(proxy_url, timeout=120)
         soup = BeautifulSoup(res.text, 'html.parser')
         items = soup.select('div.listing__item')
@@ -20,22 +21,19 @@ def scrape_all():
                 a_tag = item.find('a', href=True)
                 link = "https://www.argenprop.com" + a_tag['href'] if a_tag else ""
 
-                # 2. PRECIO (FILTRO ANTI-EXPENSAS MEJORADO)
+                # 2. PRECIO (LIMPIO)
                 p_tag = item.select_one('.card__price')
                 if not p_tag: continue
+                full_text = p_tag.get_text(strip=True)
                 
-                # Buscamos el texto que contiene 'USD' y tomamos solo la primera cifra
-                full_text = p_tag.get_text(strip=True) # Trae ej: "USD130.000+$160.000expensas"
-                
-                # Esta expresión regular busca solo el primer número largo después de USD
+                # Buscamos solo el primer número después de USD para ignorar expensas
                 solo_precio = re.search(r'USD\s*([\d\.]+)', full_text)
                 if solo_precio:
                     precio_final = int(solo_precio.group(1).replace('.', ''))
                 else:
-                    # Si no encuentra USD, intentamos solo con el primer grupo de números
-                    precio_final = int(re.findall(r'\d+', full_text.replace('.', ''))[0])
+                    continue # Si no hay precio claro, saltamos
 
-                # 3. DIRECCIÓN
+                # 3. DIRECCIÓN / BARRIO
                 dir_tag = item.select_one('.card__address')
                 direccion = dir_tag.get_text(strip=True) if dir_tag else "CABA"
 
