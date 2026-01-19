@@ -14,6 +14,7 @@ def conectar_sheets():
         creds_dict = json.loads(os.getenv('GOOGLE_JSON'))
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         client = gspread.authorize(creds)
+        # Asegurate que el nombre del archivo sea "Inmuebles"
         return client.open("Inmuebles").sheet1 
     except Exception as e:
         print(f"❌ Error al conectar con Sheets: {e}")
@@ -97,10 +98,11 @@ def procesar_y_subir(deptos):
 
         if debe_subir and sheet:
             precio_m2 = round(d['precio'] / d['superficie'], 2) if d['superficie'] > 0 else 0
+            # Columnas: Fecha, Hora, Barrio, Precio, Moneda, Sup, Precio_m2, Amb, Direccion, Link, Nota
             fila = [fecha_hoy, hora_hoy, d['barrio'], d['precio'], "USD", d['superficie'], precio_m2, "2", d['direccion'], d['link'], nota]
             try:
                 sheet.append_row(fila)
-                print(f"✅ Subido: {d['direccion']}")
+                print(f"✅ Subido a Sheets: {d['direccion']}")
             except Exception as e:
                 print(f"❌ Error al subir fila: {e}")
 
@@ -113,4 +115,4 @@ if __name__ == "__main__":
     if datos:
         procesar_y_subir(datos)
     else:
-        print("⚠️ No hay novedades.")
+        print("⚠️ No hay novedades para los filtros aplicados.")
