@@ -3,3 +3,4 @@ beautifulsoup4
 psycopg2-binary
 gspread
 oauth2client
+google-api-python-client
