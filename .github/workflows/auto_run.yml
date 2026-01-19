@@ -22,5 +22,5 @@ jobs:
 
       - name: Ejecutar Robot
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scraper_ml.py
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  GOOGLE_JSON: ${{ secrets.GOOGLE_JSON }}
