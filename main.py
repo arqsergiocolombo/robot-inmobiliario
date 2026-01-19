@@ -1,5 +1,7 @@
 import scraper_ml
+
 if __name__ == "__main__":
-    lista = scraper_ml.scrape_all()
-    if lista:
-        scraper_ml.procesar(lista)
+    print("🚀 Iniciando Robot Inmobiliario...")
+    datos = scraper_ml.scrape_run()
+    scraper_ml.export_to_sheets(datos)
+    print("🏁 Proceso finalizado.")
