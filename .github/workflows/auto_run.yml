@@ -1,26 +1,30 @@
-name: Robot Inmobiliario Automatico
+name: Run Inmuebles Scraper
 
 on:
-  schedule:
-    - cron: '0 13 * * *' 
   workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *' # Corre cada hora
 
 jobs:
-  run-scraper:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Descargar codigo
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Configurar Python
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
           python-version: '3.9'
 
-      - name: Instalar librerias
-        run: pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Ejecutar Robot
+      - name: Run scraper
         env:
-  DATABASE_URL: ${{ secrets.DATABASE_URL }}
-  GOOGLE_JSON: ${{ secrets.GOOGLE_JSON }}
+          GOOGLE_JSON: ${{ secrets.GOOGLE_JSON }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py
