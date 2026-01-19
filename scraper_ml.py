@@ -14,7 +14,6 @@ def conectar_sheets():
         creds_dict = json.loads(os.getenv('GOOGLE_JSON'))
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         client = gspread.authorize(creds)
-        # IMPORTANTE: Tu archivo de Google se tiene que llamar "Inmuebles"
         return client.open("Inmuebles").sheet1 
     except Exception as e:
         print(f"❌ Error Sheets: {e}")
@@ -25,14 +24,15 @@ def scrape_all():
     api_key = "eab02f8eb7f617cb6bfd3c2173ed197d" 
     results = []
     
-    # Bajamos a 3 páginas solo para probar que funcione YA
+    # Solo 3 páginas para asegurar que termine y suba la info
     for page in range(1, 4):
         target_url = f"{base_url}-pagina-{page}"
+        # QUITAMOS RENDER=TRUE PARA QUE NO TARDE 10 MINUTOS
         proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&country_code=ar"
         
         try:
             print(f"Buscando en página {page}...")
-            res = requests.get(proxy_url, timeout=60)
+            res = requests.get(proxy_url, timeout=30)
             soup = BeautifulSoup(res.text, 'html.parser')
             items = soup.select('div.listing__item')
             
@@ -46,7 +46,6 @@ def scrape_all():
                     precio_final = int(solo_precio.group(1).replace('.', ''))
 
                     texto = item.get_text(" ").lower()
-                    # Filtros de 2 ambientes y 40m2
                     if "1 amb" in texto or "monoambiente" in texto: continue
                     if not re.search(r'(2\s*amb|1\s*dorm)', texto): continue
                     
@@ -70,6 +69,8 @@ def procesar(datos):
     cur = conn.cursor()
     cur.execute("CREATE TABLE IF NOT EXISTS propiedades (id_link TEXT PRIMARY KEY, precio INT)")
     
+    fecha = datetime.now().strftime("%d/%m/%Y")
+    
     for d in datos:
         cur.execute("SELECT precio FROM propiedades WHERE id_link = %s", (d['link'],))
         row = cur.fetchone()
@@ -81,14 +82,15 @@ def procesar(datos):
             cur.execute("INSERT INTO propiedades (id_link, precio) VALUES (%s, %s)", (d['link'], d['precio']))
             subir = True
         elif d['precio'] < row[0]:
-            nota = f"📉 BAJÓ (Era {row[0]})"
+            nota = f"📉 REBAJA (Era {row[0]})"
             cur.execute("UPDATE propiedades SET precio = %s WHERE id_link = %s", (d['precio'], d['link']))
             subir = True
             
         if subir and sheet:
-            fila = [datetime.now().strftime("%d/%m/%Y"), "Palermo/Bel/Rec", d['precio'], d['m2'], d['dir'], d['link'], nota]
+            # Formato exacto de tu Excel
+            fila = [fecha, "", "CABA", d['precio'], "USD", d['m2'], "", "2", d['dir'], d['link'], nota]
             sheet.append_row(fila)
-            print(f"✅ Guardado: {d['dir']}")
+            print(f"✅ ¡NUEVO!: {d['dir']}")
 
     conn.commit()
     cur.close()
