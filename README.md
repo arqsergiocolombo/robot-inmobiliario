@@ -1,18 +1,10 @@
-# Robot Inmobiliario
+# Robot Inmobiliario Autónomo 🤖
+Este robot busca departamentos en Palermo, Belgrano y Recoleta que cumplan con:
+- Al menos 2 ambientes (o 1 dormitorio).
+- Más de 40 m2 de superficie.
+- Precio menor a USD 100.000.
 
-Automatización y sistema de detección de oportunidades inmobiliarias.
-
-## Qué hace
-- Scrapea publicaciones de MercadoLibre
-- Normaliza datos
-- Guarda resultados en Google Sheets
-- Corre automáticamente cada 5 minutos
-
-## Infraestructura
-- Python 3.13
-- Railway
-- Google Sheets API
-- Variables de entorno (NO archivos secretos)
-
-## Variables necesarias
-- GOOGLE_SERVICE_ACCOUNT_JSON
+### Funcionamiento
+1. Scrapea Argenprop diariamente.
+2. Guarda los resultados en una base de datos PostgreSQL en **Railway**.
+3. Detecta automáticamente si una propiedad bajó de precio comparándola con registros anteriores.
