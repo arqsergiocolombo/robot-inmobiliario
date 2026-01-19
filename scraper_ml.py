@@ -4,20 +4,20 @@ import re
 import os
 import psycopg2
 import gspread
+import json
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 
 def conectar_sheets():
     try:
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        # Usamos el secreto que ya tenés cargado en GitHub
-        import json
         creds_dict = json.loads(os.getenv('GOOGLE_JSON'))
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         client = gspread.authorize(creds)
-        return client.open("Inmuebles").get_workspace(0) # Asegurate que el nombre sea exacto
+        # Abrimos el archivo "Inmuebles"
+        return client.open("Inmuebles").sheet1 
     except Exception as e:
-        print(f"❌ Error Sheets: {e}")
+        print(f"❌ Error al conectar con Sheets: {e}")
         return None
 
 def scrape_all():
@@ -26,7 +26,7 @@ def scrape_all():
     results = []
     print("🔎 Iniciando búsqueda en Argenprop...")
 
-    for page in range(1, 10): # Ajustado a 10 para asegurar estabilidad
+    for page in range(1, 15):
         target_url = f"{base_url}-pagina-{page}"
         proxy_url = f"http://api.scraperapi.com?api_key={api_key}&url={target_url}&render=true&country_code=ar"
         try:
@@ -36,51 +36,76 @@ def scrape_all():
             if not items: break
 
             for item in items:
-                # ... (Lógica de filtrado de 2 amb y +40m2 que ya funcionaba) ...
-                # Suponiendo que extraemos: precio, direccion, superficie, link
-                results.append({"precio": precio, "dir": direccion, "m2": superficie, "link": link})
-        except: continue
+                try:
+                    p_tag = item.select_one('.card__price')
+                    if not p_tag: continue
+                    full_text = p_tag.get_text(strip=True)
+                    solo_precio = re.search(r'USD\s*([\d\.]+)', full_text)
+                    if not solo_precio: continue
+                    precio_final = int(solo_precio.group(1).replace('.', ''))
+                    
+                    texto_tarjeta = item.get_text(" ").lower()
+                    if "1 amb" in texto_tarjeta or "monoambiente" in texto_tarjeta: continue
+                    if not re.search(r'(2\s*amb|1\s*dorm|1\s*cuarto)', texto_tarjeta): continue
+
+                    m2_search = re.search(r'(\d+([.,]\d+)?)\s*m²', texto_tarjeta)
+                    superficie = float(m2_search.group(1).replace(',', '.')) if m2_search else 0.0
+                    if superficie < 40.0: continue 
+
+                    dir_tag = item.select_one('.card__address')
+                    direccion = dir_tag.get_text(strip=True) if dir_tag else "CABA"
+                    barrio = "Palermo" if "palermo" in direccion.lower() else "Belgrano" if "belgrano" in direccion.lower() else "Recoleta"
+                    
+                    link = "https://www.argenprop.com" + item.find('a', href=True)['href']
+
+                    results.append({
+                        "precio": precio_final, "link": link, "direccion": direccion, 
+                        "superficie": int(superficie), "barrio": barrio
+                    })
+                except: continue
+        except: break
     return results
 
-def procesar_todo(deptos):
+def procesar_y_subir(deptos):
     sheet = conectar_sheets()
     db_url = os.getenv('DATABASE_URL')
     conn = psycopg2.connect(db_url)
     cur = conn.cursor()
     
+    # Creamos la tabla si no existe
+    cur.execute("CREATE TABLE IF NOT EXISTS propiedades (id_link TEXT PRIMARY KEY, precio INT)")
+    
     fecha_hoy = datetime.now().strftime("%d/%m/%Y")
     hora_hoy = datetime.now().strftime("%H:%M")
 
     for d in deptos:
-        # 1. Verificamos en DB si es nuevo o rebaja
         cur.execute("SELECT precio FROM propiedades WHERE id_link = %s", (d['link'],))
         res = cur.fetchone()
         
-        es_nuevo = False
         nota = ""
-        
+        debe_subir = False
+
         if res:
             if d['precio'] < res[0]:
-                nota = f"📉 BAJÓ de {res[0]}"
+                nota = f"📉 BAJÓ (Era {res[0]})"
                 cur.execute("UPDATE propiedades SET precio = %s WHERE id_link = %s", (d['precio'], d['link']))
+                debe_subir = True
         else:
-            cur.execute("INSERT INTO propiedades (id_link, direccion, precio, superficie) VALUES (%s,%s,%s,%s)",
-                        (d['link'], d['dir'], d['precio'], d['m2']))
-            es_nuevo = True
+            cur.execute("INSERT INTO propiedades (id_link, precio) VALUES (%s, %s)", (d['link'], d['precio']))
+            debe_subir = True # Es nuevo
 
-        # 2. Si es nuevo o rebaja, lo subimos al Sheets
-        if es_nuevo or nota != "":
-            # Formato de tu Excel: Fecha, Hora, Barrio, Precio, etc.
-            nueva_fila = [fecha_hoy, hora_hoy, "Barrio", d['precio'], "USD", d['m2'], "", d['dir'], d['link'], nota]
-            if sheet:
-                sheet.append_row(nueva_fila)
-                print(f"✅ Subido a Sheets: {d['dir']}")
+        if debe_subir and sheet:
+            # Orden de tus columnas: Fecha, Hora, Barrio, Precio, Moneda, Sup, Precio_m2, Amb, Direccion, Link, Nota
+            precio_m2 = round(d['precio'] / d['superficie'], 2)
+            fila = [fecha_hoy, hora_hoy, d['barrio'], d['precio'], "USD", d['superficie'], precio_m2, "2", d['direccion'], d['link'], nota]
+            sheet.append_row(fila)
+            print(f"✅ Añadido a Sheets: {d['direccion']}")
 
     conn.commit()
     cur.close()
     conn.close()
 
 if __name__ == "__main__":
-    data = scrape_all()
-    if data:
-        procesar_todo(data)
+    datos = scrape_all()
+    if datos:
+        procesar_y_subir(datos)
